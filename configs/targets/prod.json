@@ -1,0 +1,11 @@
+{
+    "id": "prod",
+    "name": "production",
+    "description": "Production environment",
+    "region": "east",
+    "type": "standard",
+    "policies": {
+        "autoscaling": "advanced",
+        "stressload": "high"
+    }
+}

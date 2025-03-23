@@ -1,0 +1,11 @@
+{
+    "id": "dev",
+    "name": "development",
+    "description": "Development environment",
+    "region": "west",
+    "type": "micro",
+    "policies": {
+        "autoscaling": "basic",
+        "stressload": "low"
+    }
+}

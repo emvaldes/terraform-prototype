@@ -1,0 +1,21 @@
+$ gcloud storage buckets list --format=json ;
+
+[
+  {
+    "creation_time": "2025-03-23T13:15:50+0000",
+    "default_storage_class": "STANDARD",
+    "generation": 9876543210987654321,
+    "location": "US-WEST2",
+    "location_type": "region",
+    "metageneration": 1,
+    "name": "example-terraform-state",
+    "public_access_prevention": "inherited",
+    "soft_delete_policy": {
+      "effectiveTime": "2025-03-23T13:15:50.135000+00:00",
+      "retentionDurationSeconds": "604800"
+    },
+    "storage_url": "gs://example-terraform-state/",
+    "uniform_bucket_level_access": true,
+    "update_time": "2025-03-23T13:15:50+0000"
+  }
+]

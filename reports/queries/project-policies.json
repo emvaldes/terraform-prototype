@@ -1,0 +1,64 @@
+$ gcloud projects get-iam-policy $(gcloud config get-value project) --format=json ;
+
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:service-123456789012@gcp-sa-bms.iam.gserviceaccount.com"
+      ],
+      "role": "roles/baremetalsolution.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-123456789012@compute-system.iam.gserviceaccount.com"
+      ],
+      "role": "roles/compute.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-123456789012@container-engine-robot.iam.gserviceaccount.com"
+      ],
+      "role": "roles/container.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:service-123456789012@containerregistry.iam.gserviceaccount.com"
+      ],
+      "role": "roles/containerregistry.ServiceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:123456789012-compute@developer.gserviceaccount.com",
+        "serviceAccount:123456789012@cloudservices.gserviceaccount.com"
+      ],
+      "role": "roles/editor"
+    },
+    {
+      "members": [
+        "serviceAccount:service-123456789012@gcp-sa-networkmanagement.iam.gserviceaccount.com"
+      ],
+      "role": "roles/networkmanagement.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:gcp-cli-admin@<project-name>.iam.gserviceaccount.com",
+        "user:cloud.admin@example.com"
+      ],
+      "role": "roles/owner"
+    },
+    {
+      "members": [
+        "serviceAccount:service-123456789012@gcp-sa-pubsub.iam.gserviceaccount.com"
+      ],
+      "role": "roles/pubsub.serviceAgent"
+    },
+    {
+      "members": [
+        "serviceAccount:gcp-cli-admin@<project-name>.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.admin"
+    }
+  ],
+  "etag": "FakeEtag123==",
+  "version": 1
+}

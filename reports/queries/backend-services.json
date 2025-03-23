@@ -1,0 +1,39 @@
+$ gcloud compute backend-services list --global --format=json ;
+
+[
+  {
+    "affinityCookieTtlSec": 0,
+    "backends": [
+      {
+        "balancingMode": "UTILIZATION",
+        "capacityScaler": 1,
+        "group": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group"
+      }
+    ],
+    "connectionDraining": {
+      "drainingTimeoutSec": 300
+    },
+    "creationTimestamp": "2025-03-24T12:16:49.751-07:00",
+    "description": "",
+    "enableCDN": false,
+    "fingerprint": "FakeFingerprint123==",
+    "healthChecks": [
+      "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/http-health-check"
+    ],
+    "id": "1234567890123456789",
+    "kind": "compute#backendService",
+    "loadBalancingScheme": "EXTERNAL",
+    "name": "web-backend-service",
+    "port": 80,
+    "portName": "http",
+    "protocol": "HTTP",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/web-backend-service",
+    "sessionAffinity": "NONE",
+    "timeoutSec": 30,
+    "usedBy": [
+      {
+        "reference": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
+      }
+    ]
+  }
+]

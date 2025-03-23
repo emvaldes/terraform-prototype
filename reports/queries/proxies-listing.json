@@ -1,0 +1,13 @@
+$ gcloud compute url-maps list --format=json ;
+
+[
+  {
+    "creationTimestamp": "2025-03-24T12:17:33.410-07:00",
+    "defaultService": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/example-backend-service",
+    "fingerprint": "kJxPtbaJaeM=",
+    "id": "123456789012345678",
+    "kind": "compute#urlMap",
+    "name": "example-url-map",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/example-url-map"
+  }
+]

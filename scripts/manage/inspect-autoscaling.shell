@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/inspect-autoscaling.shell
+# Version: 0.1.0
+# Description: This script performs a stress test on a load balancer and inspects the autoscaling behavior of a managed instance group (MIG) in GCP.
+
+# set -xeuo pipefail
+
+# --- Configuration ---
+
+config_prefix="${1:-.}"
+cd "${config_prefix}" || exit 1
+pwd
+
+workspace="$(terraform workspace show)"
+echo -e "\n[Inspecting Autoscaling in Workspace: ${workspace}]"
+
+targets_path="${config_prefix}/configs/targets/${workspace}.json"
+echo -e "[Target Configuration: ${targets_path}]"
+ls -al "${targets_path}"
+cat "${targets_path}"
+
+policies_path="${config_prefix}/configs/policies.json"
+echo -e "[Policies Configuration: ${policies_path}]"
+ls -al "${policies_path}"
+
+# --- Validate Files ---
+
+if [[ ! -f "${targets_path}" ]]; then
+        echo "Error: Target configuration not found: ${targets_path}" >&2
+        exit 1
+  else  echo -e "[Target Configuration: ${targets_path}]"
+fi
+
+if [[ ! -f "${policies_path}" ]]; then
+        echo "Error: Policies file not found: ${policies_path}" >&2
+        exit 2
+  else  echo -e "[Policies Configuration: ${policies_path}]"
+fi
+
+# --- Extract Stressload Settings ---
+
+stress_key="$(jq -r '.policies.stressload' "${targets_path}")"
+echo -e "[Stressload Key: ${stress_key}]"
+
+stress_json="$(jq -r --arg key "${stress_key}" '.stressload.levels[$key]' "${policies_path}")"
+echo -e "[Stressload Configuration: ${stress_json}]"
+
+duration_total=$(jq -r '.duration' <<< "${stress_json}")
+echo -e "[Stressload Duration: ${duration_total}]"
+
+concurrency=$(jq -r '.threads' <<< "${stress_json}")
+echo -e "[Stressload Concurrency: ${concurrency}]"
+
+interval=$(jq -r '.interval' <<< "${stress_json}")
+echo -e "[Stressload Interval: ${interval}]"
+
+requests=$(jq -r '.requests' <<< "${stress_json}")
+echo -e "[Stressload Requests: ${requests}]"
+
+# --- Phase Setup ---
+
+phase_duration=15
+echo -e "[Phase Duration: ${phase_duration}]"
+
+lb_ip="$(terraform output -raw load_balancer_ip)"
+echo -e "[Load Balancer IP: ${lb_ip}]"
+
+target_url="http://${lb_ip}"
+echo -e "[Target URL: ${target_url}]"
+
+# --- Terraform Metadata ---
+
+gcp_project_id="$(terraform output -raw project_id)"
+echo -e "[GCP Project ID: ${gcp_project_id}]"
+
+gcp_region="$(terraform output -raw region)"
+echo -e "[GCP Region: ${gcp_region}]"
+
+group=$(terraform output -raw compute_web_servers_group)
+echo -e "[Managed Instance Group: ${group}]"
+
+mig_name="$(echo "${group}" | awk -F/ '{print $NF}')"
+echo -e "[MIG Name: ${mig_name}]"
+
+autoscaling_key="$(jq -r '.policies.autoscaling' "${targets_path}")"
+echo -e "[Autoscaling Key: ${autoscaling_key}]"
+
+autoscaling_config="$(jq -r ".autoscaling.profiles[\"${autoscaling_key}\"]" "${policies_path}")"
+echo -e "[Autoscaling Configuration: ${autoscaling_config}]"
+
+autoscaling_min=$(jq -r '.min' <<< "${autoscaling_config}")
+echo -e "[Autoscaling Minimum: ${autoscaling_min}]"
+
+# --- Function to Check Instance Count ---
+
+function print_instance_count() {
+  echo -e "\n[Inspecting Instances in MIG: ${mig_name}]"
+  instance_data=$(gcloud compute instance-groups managed list-instances "${mig_name}" \
+                    --region="${gcp_region}" \
+                    --project="${gcp_project_id}" \
+                    --format="json")
+  instance_count=$(jq 'length' <<< "${instance_data}")
+  echo "Current instances running: ${instance_count}"
+}
+
+# --- Function to Display Active Instances ---
+
+function print_active_instances() {
+  gcloud compute instance-groups managed list-instances \
+    "${mig_name}" \
+    --region="${gcp_region}" \
+    --project="${gcp_project_id}" \
+    --format="json"
+}
+
+# --- Reset Autoscaler to Minimum ---
+
+function reset_autoscaler() {
+  echo -e "\n[Resetting MIG to minimum replica count: ${autoscaling_min}]"
+  gcloud compute instance-groups managed resize "${mig_name}" \
+    --region="${gcp_region}" \
+    --size="${autoscaling_min}" \
+    --project="${gcp_project_id}" \
+    --quiet
+  echo "Resize command issued. MIG will return to baseline size."
+}
+
+# --- Stressload Phases ---
+
+function run_phase() {
+
+  local name="$1"
+  local duration="$2"
+  local threads="$3"
+  echo -e "[Phase: ${name}] Duration: ${duration}s | Concurrency: ${threads}"
+
+  print_instance_count
+  print_active_instances
+
+  # hey -z "${duration}s" -c "${threads}" "${target_url}"
+  hey -z "${duration}s" -c "${threads}" "${target_url}" 2> >(grep -v -E 'Get "http.*":' >&2 || true)
+
+}
+
+echo -e "Running stress test against: ${target_url}"
+echo -e "Stress Level: ${stress_key} | Threads: ${concurrency} | Duration: ${duration_total}s | Interval: ${interval}s | Requests: ${requests}"
+
+run_phase "Burst Load" "${phase_duration}" $((concurrency * 2))
+run_phase "Sustained Pressure" "${phase_duration}" "${concurrency}"
+run_phase "Cooldown" "${phase_duration}" $((concurrency / 2))
+run_phase "Recovery" "${phase_duration}" $((concurrency / 4))
+
+# [Resetting MIG to minimum replica count: 1]
+# ERROR: (gcloud.compute.instance-groups.managed.resize) Could not fetch resource:
+#  - Resizing of autoscaled regional managed instance groups is not allowed. If you want to manually adjust target size remove the autoscaler or set autoscaling policy mode to OFF.
+#
+# reset_autoscaler
+
+echo -e "Stressload test complete."
