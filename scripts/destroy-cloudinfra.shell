@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+# File: scripts/destroy-infra.shell
+# Version: 0.1.0
+
+# Warning: Order/Precedence of operations are critical
+
+# 1. Global forwarding rule
+gcloud compute forwarding-rules \
+       delete dev--http-forwarding-rule \
+       --global --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 2. Target HTTP proxy
+gcloud compute target-http-proxies \
+       delete web-http-proxy \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 3. URL map
+gcloud compute url-maps \
+       delete web-url-map \
+       --global --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 4. Backend service
+gcloud compute backend-services \
+       delete dev--web-backend-service \
+       --global --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 5. Health checks
+gcloud compute health-checks \
+       delete dev--http-health-check \
+       --global --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+gcloud compute health-checks \
+       delete http-health-check-us-west2 \
+       --global --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 6. Instance group manager (corrected)
+gcloud compute instance-groups managed \
+       delete web-servers-group \
+       --region="${TF_VAR_region}" \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 7. Instance template
+gcloud compute instance-templates \
+       delete web-server-template \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 8. Subnet
+gcloud compute networks subnets \
+       delete webapp-subnet \
+       --region="${TF_VAR_region}" \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 9. NAT config
+gcloud compute routers nats \
+       delete webapp-nat-config \
+       --router=webapp-router \
+       --region="${TF_VAR_region}" \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 10. Router
+gcloud compute routers \
+       delete webapp-router \
+       --region="${TF_VAR_region}" \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 11. Firewall rules
+gcloud compute firewall-rules \
+       delete allow-http-https \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+gcloud compute firewall-rules \
+       delete allow-ssh-restricted \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+gcloud compute firewall-rules \
+       delete allow-ssh-iap \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;
+
+# 12. VPC network
+gcloud compute networks \
+       delete webapp-vpc \
+       --project="${TF_VAR_gcp_project_id}" \
+       --quiet ;

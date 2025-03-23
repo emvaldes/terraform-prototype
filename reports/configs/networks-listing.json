@@ -1,0 +1,44 @@
+$ gcloud compute networks list --format=json ;
+
+[
+  {
+    "autoCreateSubnetworks": true,
+    "creationTimestamp": "2025-03-22T19:49:41.221-07:00",
+    "description": "Default network for the project",
+    "id": "1234567890123456789",
+    "kind": "compute#network",
+    "name": "default",
+    "networkFirewallPolicyEnforcementOrder": "AFTER_CLASSIC_FIREWALL",
+    "routingConfig": {
+      "routingMode": "REGIONAL"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/default",
+    "selfLinkWithId": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/1234567890123456789",
+    "subnetworks": [
+      "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west1/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/northamerica-northeast2/subnetworks/default",
+      "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/europe-west1/subnetworks/default"
+    ],
+    "x_gcloud_bgp_routing_mode": "REGIONAL",
+    "x_gcloud_subnet_mode": "AUTO"
+  },
+  {
+    "autoCreateSubnetworks": false,
+    "creationTimestamp": "2025-03-24T12:15:32.606-07:00",
+    "id": "9876543210987654321",
+    "kind": "compute#network",
+    "name": "example-vpc",
+    "networkFirewallPolicyEnforcementOrder": "AFTER_CLASSIC FIREWALL",
+    "routingConfig": {
+      "bgpBestPathSelectionMode": "LEGACY",
+      "routingMode": "REGIONAL"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/example-vpc",
+    "selfLinkWithId": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/9876543210987654321",
+    "subnetworks": [
+      "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/example-subnet"
+    ],
+    "x_gcloud_bgp_routing_mode": "REGIONAL",
+    "x_gcloud_subnet_mode": "CUSTOM"
+  }
+]

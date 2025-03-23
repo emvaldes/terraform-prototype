@@ -1,0 +1,53 @@
+{
+  "default": "dev",
+  "targets": {
+    "dev": {
+      "region": "us-west2",
+      "services": {
+        "http_forwarding": {
+          "name": "dev--http-forwarding-rule"
+        },
+        "web_backend": {
+          "name": "dev--web-backend-service"
+        },
+        "health_check": {
+          "name": "dev--http-health-check"
+        }
+      },
+      "type": "e2-micro",
+      "count": 1
+    },
+    "staging": {
+      "region": "us-central1",
+      "services": {
+        "http_forwarding": {
+          "name": "staging--http-forwarding-rule"
+        },
+        "web_backend": {
+          "name": "staging--web-backend-service"
+        },
+        "health_check": {
+          "name": "staging--http-health-check"
+        }
+      },
+      "type": "e2-medium",
+      "count":2
+    },
+    "prod": {
+      "region": "us-east1",
+      "services": {
+        "http_forwarding": {
+          "name": "prod--http-forwarding-rule"
+        },
+        "web_backend": {
+          "name": "prod--web-backend-service"
+        },
+        "health_check": {
+          "name": "prod--http-health-check"
+        }
+      },
+      "type": "n1-standard-1",
+      "count": 3
+    }
+  }
+}

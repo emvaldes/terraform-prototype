@@ -1,0 +1,599 @@
+$ terraform destroy ;
+
+module.compute.data.google_compute_zones.available: Reading...
+module.networking.google_compute_network.vpc_network: Refreshing state... [id=projects/<project-name>/global/networks/webapp-vpc]
+module.compute.google_compute_health_check.http: Refreshing state... [id=projects/<project-name>/global/healthChecks/http-health-check-us-west2]
+module.load_balancer.google_compute_health_check.http: Refreshing state... [id=projects/<project-name>/global/healthChecks/dev--http-health-check]
+module.networking.google_compute_router.nat_router: Refreshing state... [id=projects/<project-name>/regions/us-west2/routers/webapp-router]
+module.networking.google_compute_subnetwork.subnet: Refreshing state... [id=projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet]
+module.firewall.google_compute_firewall.allow_ssh: Refreshing state... [id=projects/<project-name>/global/firewalls/allow-ssh-restricted]
+module.firewall.google_compute_firewall.allow_ssh_iap: Refreshing state... [id=projects/<project-name>/global/firewalls/allow-ssh-iap]
+module.firewall.google_compute_firewall.allow_http_https: Refreshing state... [id=projects/<project-name>/global/firewalls/allow-http-https]
+module.compute.data.google_compute_zones.available: Read complete after 0s [id=projects/<project-name>/regions/us-west2]
+module.compute.google_compute_instance_template.web_server: Refreshing state... [id=projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001]
+module.networking.google_compute_router_nat.nat_config: Refreshing state... [id=<project-name>/us-west2/webapp-router/webapp-nat-config]
+module.compute.google_compute_region_instance_group_manager.web_servers: Refreshing state... [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group]
+module.compute.data.google_compute_region_instance_group_manager.web_servers: Reading...
+module.load_balancer.google_compute_backend_service.web_backend: Refreshing state... [id=projects/<project-name>/global/backendServices/dev--web-backend-service]
+module.compute.data.google_compute_region_instance_group_manager.web_servers: Read complete after 0s [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group]
+module.load_balancer.google_compute_url_map.default: Refreshing state... [id=projects/<project-name>/global/urlMaps/web-url-map]
+module.load_balancer.google_compute_target_http_proxy.default: Refreshing state... [id=projects/<project-name>/global/targetHttpProxies/web-http-proxy]
+module.load_balancer.google_compute_global_forwarding_rule.http: Refreshing state... [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # module.compute.google_compute_health_check.http will be destroyed
+  - resource "google_compute_health_check" "http" {
+      - check_interval_sec  = 5 -> null
+      - creation_timestamp  = "2025-03-26T02:15:43.628-07:00" -> null
+      - healthy_threshold   = 2 -> null
+      - id                  = "projects/<project-name>/global/healthChecks/http-health-check-us-west2" -> null
+      - name                = "http-health-check-us-west2" -> null
+      - project             = "<project-name>" -> null
+      - self_link           = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/http-health-check-us-west2" -> null
+      - source_regions      = [] -> null
+      - timeout_sec         = 5 -> null
+      - type                = "HTTP" -> null
+      - unhealthy_threshold = 2 -> null
+        # (1 unchanged attribute hidden)
+
+      - http_health_check {
+          - port               = 80 -> null
+          - proxy_header       = "NONE" -> null
+          - request_path       = "/" -> null
+            # (4 unchanged attributes hidden)
+        }
+
+      - log_config {
+          - enable = false -> null
+        }
+    }
+
+  # module.compute.google_compute_instance_template.web_server will be destroyed
+  - resource "google_compute_instance_template" "web_server" {
+      - can_ip_forward             = false -> null
+      - creation_timestamp         = "2025-03-26T02:16:18.007-07:00" -> null
+      - effective_labels           = {
+          - "goog-terraform-provisioned" = "true"
+        } -> null
+      - id                         = "projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001" -> null
+      - labels                     = {} -> null
+      - machine_type               = "e2-micro" -> null
+      - metadata                   = {
+          - "startup-script" = <<-EOT
+                #!/bin/bash
+
+                # File: /scripts/setup-webserver.shell
+                # Version: 0.1.0
+
+                # Update package lists
+                sudo apt update -y;
+
+                # Install Apache web server
+                sudo apt install -y apache2;
+
+                # Start and enable Apache
+                sudo systemctl start apache2;
+                sudo systemctl enable apache2;
+
+                # Create a simple HTML page to verify the instance is running
+                echo -e "<h1>Server $(hostname) is running behind ALB</h1>" \
+                   | sudo tee /var/www/html/index.html;
+            EOT
+        } -> null
+      - metadata_fingerprint       = "uKABx5clmCw=" -> null
+      - name                       = "web-server-template--20250326091616904000000001" -> null
+      - name_prefix                = "web-server-template--" -> null
+      - project                    = "<project-name>" -> null
+      - region                     = "us-west2" -> null
+      - self_link                  = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001" -> null
+      - self_link_unique           = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001?uniqueId=1348261503715670798" -> null
+      - tags                       = [
+          - "couchsurfing",
+          - "http-server",
+          - "ssh-access",
+        ] -> null
+      - terraform_labels           = {
+          - "goog-terraform-provisioned" = "true"
+        } -> null
+        # (5 unchanged attributes hidden)
+
+      - disk {
+          - auto_delete            = true -> null
+          - boot                   = true -> null
+          - device_name            = "persistent-disk-0" -> null
+          - disk_size_gb           = 0 -> null
+          - disk_type              = "pd-standard" -> null
+          - interface              = "SCSI" -> null
+          - labels                 = {} -> null
+          - mode                   = "READ_WRITE" -> null
+          - provisioned_iops       = 0 -> null
+          - provisioned_throughput = 0 -> null
+          - resource_manager_tags  = {} -> null
+          - resource_policies      = [] -> null
+          - source_image           = "projects/debian-cloud/global/images/family/debian-11" -> null
+          - type                   = "PERSISTENT" -> null
+            # (3 unchanged attributes hidden)
+        }
+
+      - network_interface {
+          - internal_ipv6_prefix_length = 0 -> null
+          - name                        = "nic0" -> null
+          - network                     = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+          - queue_count                 = 0 -> null
+          - subnetwork                  = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet" -> null
+          - subnetwork_project          = "<project-name>" -> null
+            # (5 unchanged attributes hidden)
+        }
+
+      - scheduling {
+          - automatic_restart           = true -> null
+          - availability_domain         = 0 -> null
+          - min_node_cpus               = 0 -> null
+          - on_host_maintenance         = "MIGRATE" -> null
+          - preemptible                 = false -> null
+          - provisioning_model          = "STANDARD" -> null
+            # (2 unchanged attributes hidden)
+        }
+    }
+
+  # module.compute.google_compute_region_instance_group_manager.web_servers will be destroyed
+  - resource "google_compute_region_instance_group_manager" "web_servers" {
+      - base_instance_name               = "web-server" -> null
+      - creation_timestamp               = "2025-03-26T02:16:19.653-07:00" -> null
+      - distribution_policy_target_shape = "EVEN" -> null
+      - distribution_policy_zones        = [
+          - "us-west2-a",
+          - "us-west2-b",
+          - "us-west2-c",
+        ] -> null
+      - fingerprint                      = "4c4ZtnDNAtk=" -> null
+      - id                               = "projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group" -> null
+      - instance_group                   = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group" -> null
+      - instance_group_manager_id        = 3260019402137828108 -> null
+      - list_managed_instances_results   = "PAGELESS" -> null
+      - name                             = "web-servers-group" -> null
+      - project                          = "<project-name>" -> null
+      - region                           = "us-west2" -> null
+      - self_link                        = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group" -> null
+      - status                           = [
+          - {
+              - all_instances_config = [
+                  - {
+                      - effective        = true
+                        # (1 unchanged attribute hidden)
+                    },
+                ]
+              - is_stable            = true
+              - stateful             = [
+                  - {
+                      - has_stateful_config  = false
+                      - per_instance_configs = [
+                          - {
+                              - all_effective = true
+                            },
+                        ]
+                    },
+                ]
+              - version_target       = [
+                  - {
+                      - is_reached = true
+                    },
+                ]
+            },
+        ] -> null
+      - target_pools                     = [] -> null
+      - target_size                      = 1 -> null
+      - target_stopped_size              = 0 -> null
+      - target_suspended_size            = 0 -> null
+      - wait_for_instances               = false -> null
+      - wait_for_instances_status        = "STABLE" -> null
+        # (1 unchanged attribute hidden)
+
+      - instance_lifecycle_policy {
+          - default_action_on_failure = "REPAIR" -> null
+          - force_update_on_repair    = "NO" -> null
+        }
+
+      - standby_policy {
+          - initial_delay_sec = 0 -> null
+          - mode              = "MANUAL" -> null
+        }
+
+      - update_policy {
+          - instance_redistribution_type   = "PROACTIVE" -> null
+          - max_surge_fixed                = 3 -> null
+          - max_surge_percent              = 0 -> null
+          - max_unavailable_fixed          = 3 -> null
+          - max_unavailable_percent        = 0 -> null
+          - minimal_action                 = "REPLACE" -> null
+          - replacement_method             = "SUBSTITUTE" -> null
+          - type                           = "OPPORTUNISTIC" -> null
+            # (1 unchanged attribute hidden)
+        }
+
+      - version {
+          - instance_template = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001" -> null
+            name              = null
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_http_https will be destroyed
+  - resource "google_compute_firewall" "allow_http_https" {
+      - creation_timestamp      = "2025-03-26T02:16:05.599-07:00" -> null
+      - destination_ranges      = [] -> null
+      - direction               = "INGRESS" -> null
+      - disabled                = false -> null
+      - id                      = "projects/<project-name>/global/firewalls/allow-http-https" -> null
+      - name                    = "allow-http-https" -> null
+      - network                 = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+      - priority                = 1000 -> null
+      - project                 = "<project-name>" -> null
+      - self_link               = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/firewalls/allow-http-https" -> null
+      - source_ranges           = [
+          - "0.0.0.0/0",
+        ] -> null
+      - source_service_accounts = [] -> null
+      - source_tags             = [] -> null
+      - target_service_accounts = [] -> null
+      - target_tags             = [] -> null
+        # (1 unchanged attribute hidden)
+
+      - allow {
+          - ports    = [
+              - "80",
+              - "443",
+            ] -> null
+          - protocol = "tcp" -> null
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_ssh will be destroyed
+  - resource "google_compute_firewall" "allow_ssh" {
+      - creation_timestamp      = "2025-03-26T02:16:05.455-07:00" -> null
+      - destination_ranges      = [] -> null
+      - direction               = "INGRESS" -> null
+      - disabled                = false -> null
+      - id                      = "projects/<project-name>/global/firewalls/allow-ssh-restricted" -> null
+      - name                    = "allow-ssh-restricted" -> null
+      - network                 = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+      - priority                = 1000 -> null
+      - project                 = "<project-name>" -> null
+      - self_link               = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/firewalls/allow-ssh-restricted" -> null
+      - source_ranges           = [
+          - "10.0.0.0/8",
+          - "35.235.240.0/20",
+          - "68.109.187.94",
+        ] -> null
+      - source_service_accounts = [] -> null
+      - source_tags             = [] -> null
+      - target_service_accounts = [] -> null
+      - target_tags             = [
+          - "ssh-access",
+        ] -> null
+        # (1 unchanged attribute hidden)
+
+      - allow {
+          - ports    = [
+              - "22",
+            ] -> null
+          - protocol = "tcp" -> null
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_ssh_iap will be destroyed
+  - resource "google_compute_firewall" "allow_ssh_iap" {
+      - creation_timestamp      = "2025-03-26T02:16:05.510-07:00" -> null
+      - destination_ranges      = [] -> null
+      - direction               = "INGRESS" -> null
+      - disabled                = false -> null
+      - id                      = "projects/<project-name>/global/firewalls/allow-ssh-iap" -> null
+      - name                    = "allow-ssh-iap" -> null
+      - network                 = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+      - priority                = 1000 -> null
+      - project                 = "<project-name>" -> null
+      - self_link               = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/firewalls/allow-ssh-iap" -> null
+      - source_ranges           = [
+          - "35.235.240.0/20",
+        ] -> null
+      - source_service_accounts = [] -> null
+      - source_tags             = [] -> null
+      - target_service_accounts = [] -> null
+      - target_tags             = [
+          - "ssh-access",
+        ] -> null
+        # (1 unchanged attribute hidden)
+
+      - allow {
+          - ports    = [
+              - "22",
+            ] -> null
+          - protocol = "tcp" -> null
+        }
+    }
+
+  # module.load_balancer.google_compute_backend_service.web_backend will be destroyed
+  - resource "google_compute_backend_service" "web_backend" {
+      - affinity_cookie_ttl_sec         = 0 -> null
+      - connection_draining_timeout_sec = 300 -> null
+      - creation_timestamp              = "2025-03-26T02:16:41.756-07:00" -> null
+      - custom_request_headers          = [] -> null
+      - custom_response_headers         = [] -> null
+      - enable_cdn                      = false -> null
+      - fingerprint                     = "_gMxmYwoSd0=" -> null
+      - generated_id                    = 300316872498117398 -> null
+      - health_checks                   = [
+          - "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/dev--http-health-check",
+        ] -> null
+      - id                              = "projects/<project-name>/global/backendServices/dev--web-backend-service" -> null
+      - load_balancing_scheme           = "EXTERNAL" -> null
+      - name                            = "dev--web-backend-service" -> null
+      - port_name                       = "http" -> null
+      - project                         = "<project-name>" -> null
+      - protocol                        = "HTTP" -> null
+      - self_link                       = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/dev--web-backend-service" -> null
+      - session_affinity                = "NONE" -> null
+      - timeout_sec                     = 30 -> null
+        # (7 unchanged attributes hidden)
+
+      - backend {
+          - balancing_mode               = "UTILIZATION" -> null
+          - capacity_scaler              = 1 -> null
+          - group                        = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group" -> null
+          - max_connections              = 0 -> null
+          - max_connections_per_endpoint = 0 -> null
+          - max_connections_per_instance = 0 -> null
+          - max_rate                     = 0 -> null
+          - max_rate_per_endpoint        = 0 -> null
+          - max_rate_per_instance        = 0 -> null
+          - max_utilization              = 0 -> null
+            # (1 unchanged attribute hidden)
+        }
+    }
+
+  # module.load_balancer.google_compute_global_forwarding_rule.http will be destroyed
+  - resource "google_compute_global_forwarding_rule" "http" {
+      - effective_labels      = {} -> null
+      - forwarding_rule_id    = 5184148863661799636 -> null
+      - id                    = "projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule" -> null
+      - ip_address            = "34.49.100.242" -> null
+      - ip_protocol           = "TCP" -> null
+      - label_fingerprint     = "42WmSpB8rSM=" -> null
+      - labels                = {} -> null
+      - load_balancing_scheme = "EXTERNAL" -> null
+      - name                  = "dev--http-forwarding-rule" -> null
+      - network_tier          = "PREMIUM" -> null
+      - port_range            = "80-80" -> null
+      - project               = "<project-name>" -> null
+      - self_link             = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule" -> null
+      - source_ip_ranges      = [] -> null
+      - target                = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy" -> null
+      - terraform_labels      = {} -> null
+        # (7 unchanged attributes hidden)
+    }
+
+  # module.load_balancer.google_compute_health_check.http will be destroyed
+  - resource "google_compute_health_check" "http" {
+      - check_interval_sec  = 5 -> null
+      - creation_timestamp  = "2025-03-26T02:15:43.660-07:00" -> null
+      - healthy_threshold   = 2 -> null
+      - id                  = "projects/<project-name>/global/healthChecks/dev--http-health-check" -> null
+      - name                = "dev--http-health-check" -> null
+      - project             = "<project-name>" -> null
+      - self_link           = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/dev--http-health-check" -> null
+      - source_regions      = [] -> null
+      - timeout_sec         = 5 -> null
+      - type                = "HTTP" -> null
+      - unhealthy_threshold = 2 -> null
+        # (1 unchanged attribute hidden)
+
+      - http_health_check {
+          - port               = 80 -> null
+          - proxy_header       = "NONE" -> null
+          - request_path       = "/" -> null
+            # (4 unchanged attributes hidden)
+        }
+
+      - log_config {
+          - enable = false -> null
+        }
+    }
+
+  # module.load_balancer.google_compute_target_http_proxy.default will be destroyed
+  - resource "google_compute_target_http_proxy" "default" {
+      - creation_timestamp          = "2025-03-26T02:17:35.557-07:00" -> null
+      - http_keep_alive_timeout_sec = 0 -> null
+      - id                          = "projects/<project-name>/global/targetHttpProxies/web-http-proxy" -> null
+      - name                        = "web-http-proxy" -> null
+      - project                     = "<project-name>" -> null
+      - proxy_bind                  = false -> null
+      - proxy_id                    = 7897450760207497408 -> null
+      - self_link                   = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy" -> null
+      - url_map                     = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.load_balancer.google_compute_url_map.default will be destroyed
+  - resource "google_compute_url_map" "default" {
+      - creation_timestamp = "2025-03-26T02:17:24.019-07:00" -> null
+      - default_service    = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/dev--web-backend-service" -> null
+      - fingerprint        = "XhtCoUwFrO4=" -> null
+      - id                 = "projects/<project-name>/global/urlMaps/web-url-map" -> null
+      - map_id             = 8004299869970659531 -> null
+      - name               = "web-url-map" -> null
+      - project            = "<project-name>" -> null
+      - self_link          = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.networking.google_compute_network.vpc_network will be destroyed
+  - resource "google_compute_network" "vpc_network" {
+      - auto_create_subnetworks                   = false -> null
+      - bgp_always_compare_med                    = false -> null
+      - bgp_best_path_selection_mode              = "LEGACY" -> null
+      - delete_default_routes_on_create           = false -> null
+      - enable_ula_internal_ipv6                  = false -> null
+      - id                                        = "projects/<project-name>/global/networks/webapp-vpc" -> null
+      - mtu                                       = 0 -> null
+      - name                                      = "webapp-vpc" -> null
+      - network_firewall_policy_enforcement_order = "AFTER_CLASSIC_FIREWALL" -> null
+      - network_id                                = "4756474020534057808" -> null
+      - numeric_id                                = "4756474020534057808" -> null
+      - project                                   = "<project-name>" -> null
+      - routing_mode                              = "REGIONAL" -> null
+      - self_link                                 = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+        # (5 unchanged attributes hidden)
+    }
+
+  # module.networking.google_compute_router.nat_router will be destroyed
+  - resource "google_compute_router" "nat_router" {
+      - creation_timestamp            = "2025-03-26T02:16:05.646-07:00" -> null
+      - encrypted_interconnect_router = false -> null
+      - id                            = "projects/<project-name>/regions/us-west2/routers/webapp-router" -> null
+      - name                          = "webapp-router" -> null
+      - network                       = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+      - project                       = "<project-name>" -> null
+      - region                        = "us-west2" -> null
+      - self_link                     = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/routers/webapp-router" -> null
+        # (1 unchanged attribute hidden)
+    }
+
+  # module.networking.google_compute_router_nat.nat_config will be destroyed
+  - resource "google_compute_router_nat" "nat_config" {
+      - auto_network_tier                   = "PREMIUM" -> null
+      - drain_nat_ips                       = [] -> null
+      - enable_dynamic_port_allocation      = false -> null
+      - enable_endpoint_independent_mapping = true -> null
+      - endpoint_types                      = [
+          - "ENDPOINT_TYPE_VM",
+        ] -> null
+      - icmp_idle_timeout_sec               = 30 -> null
+      - id                                  = "<project-name>/us-west2/webapp-router/webapp-nat-config" -> null
+      - max_ports_per_vm                    = 0 -> null
+      - min_ports_per_vm                    = 0 -> null
+      - name                                = "webapp-nat-config" -> null
+      - nat_ip_allocate_option              = "AUTO_ONLY" -> null
+      - nat_ips                             = [] -> null
+      - project                             = "<project-name>" -> null
+      - region                              = "us-west2" -> null
+      - router                              = "webapp-router" -> null
+      - source_subnetwork_ip_ranges_to_nat  = "ALL_SUBNETWORKS_ALL_IP_RANGES" -> null
+      - tcp_established_idle_timeout_sec    = 1200 -> null
+      - tcp_time_wait_timeout_sec           = 120 -> null
+      - tcp_transitory_idle_timeout_sec     = 30 -> null
+      - udp_idle_timeout_sec                = 30 -> null
+
+      - log_config {
+          - enable = true -> null
+          - filter = "ERRORS_ONLY" -> null
+        }
+    }
+
+  # module.networking.google_compute_subnetwork.subnet will be destroyed
+  - resource "google_compute_subnetwork" "subnet" {
+      - creation_timestamp         = "2025-03-26T02:16:06.117-07:00" -> null
+      - enable_flow_logs           = false -> null
+      - gateway_address            = "10.0.1.1" -> null
+      - id                         = "projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet" -> null
+      - ip_cidr_range              = "10.0.1.0/24" -> null
+      - name                       = "webapp-subnet" -> null
+      - network                    = "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc" -> null
+      - private_ip_google_access   = false -> null
+      - private_ipv6_google_access = "DISABLE_GOOGLE_ACCESS" -> null
+      - project                    = "<project-name>" -> null
+      - purpose                    = "PRIVATE" -> null
+      - region                     = "us-west2" -> null
+      - self_link                  = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet" -> null
+      - stack_type                 = "IPV4_ONLY" -> null
+      - subnetwork_id              = 8483570391448451897 -> null
+        # (9 unchanged attributes hidden)
+    }
+
+Plan: 0 to add, 0 to change, 15 to destroy.
+
+Changes to Outputs:
+  - console_ips              = [
+      - "35.235.240.0/20",
+    ] -> null
+  - devops_ips               = [
+      - "68.109.187.94",
+    ] -> null
+  - forwarding_rule_name     = "dev--http-forwarding-rule" -> null
+  - http_health_check_name   = "dev--http-health-check" -> null
+  - instance_type            = "e2-micro" -> null
+  - load_balancer_ip         = "34.49.100.242" -> null
+  - private_ips              = [
+      - "10.0.0.0/8",
+    ] -> null
+  - region                   = "us-west2" -> null
+  - web_backend_service_name = "dev--web-backend-service" -> null
+  - web_server_ip            = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group" -> null
+
+Do you really want to destroy all resources?
+  Terraform will destroy all your managed infrastructure, as shown above.
+  There is no undo. Only 'yes' will be accepted to confirm.
+
+  Enter a value: yes
+
+module.firewall.google_compute_firewall.allow_ssh_iap: Destroying... [id=projects/<project-name>/global/firewalls/allow-ssh-iap]
+module.firewall.google_compute_firewall.allow_ssh: Destroying... [id=projects/<project-name>/global/firewalls/allow-ssh-restricted]
+module.compute.google_compute_health_check.http: Destroying... [id=projects/<project-name>/global/healthChecks/http-health-check-us-west2]
+module.networking.google_compute_router_nat.nat_config: Destroying... [id=<project-name>/us-west2/webapp-router/webapp-nat-config]
+module.load_balancer.google_compute_global_forwarding_rule.http: Destroying... [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule]
+module.firewall.google_compute_firewall.allow_http_https: Destroying... [id=projects/<project-name>/global/firewalls/allow-http-https]
+module.firewall.google_compute_firewall.allow_http_https: Still destroying... [id=projects/<project-name>/global/firewalls/allow-http-https, 10s elapsed]
+module.compute.google_compute_health_check.http: Still destroying... [id=projects/<project-name>/global/healthChecks/http-health-check-us-west2, 10s elapsed]
+module.networking.google_compute_router_nat.nat_config: Still destroying... [id=<project-name>/us-west2/webapp-router/webapp-nat-config, 10s elapsed]
+module.load_balancer.google_compute_global_forwarding_rule.http: Still destroying... [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule, 10s elapsed]
+module.firewall.google_compute_firewall.allow_ssh: Still destroying... [id=projects/<project-name>/global/firewalls/allow-ssh-restricted, 10s elapsed]
+module.firewall.google_compute_firewall.allow_ssh_iap: Still destroying... [id=projects/<project-name>/global/firewalls/allow-ssh-iap, 10s elapsed]
+module.networking.google_compute_router_nat.nat_config: Destruction complete after 11s
+module.networking.google_compute_router.nat_router: Destroying... [id=projects/<project-name>/regions/us-west2/routers/webapp-router]
+module.compute.google_compute_health_check.http: Destruction complete after 11s
+module.firewall.google_compute_firewall.allow_ssh: Destruction complete after 11s
+module.firewall.google_compute_firewall.allow_http_https: Destruction complete after 11s
+module.firewall.google_compute_firewall.allow_ssh_iap: Destruction complete after 12s
+module.load_balancer.google_compute_global_forwarding_rule.http: Still destroying... [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule, 20s elapsed]
+module.networking.google_compute_router.nat_router: Still destroying... [id=projects/<project-name>/regions/us-west2/routers/webapp-router, 10s elapsed]
+module.load_balancer.google_compute_global_forwarding_rule.http: Destruction complete after 21s
+module.networking.google_compute_router.nat_router: Destruction complete after 11s
+module.load_balancer.google_compute_target_http_proxy.default: Destroying... [id=projects/<project-name>/global/targetHttpProxies/web-http-proxy]
+module.load_balancer.google_compute_target_http_proxy.default: Still destroying... [id=projects/<project-name>/global/targetHttpProxies/web-http-proxy, 10s elapsed]
+module.load_balancer.google_compute_target_http_proxy.default: Destruction complete after 11s
+module.load_balancer.google_compute_url_map.default: Destroying... [id=projects/<project-name>/global/urlMaps/web-url-map]
+module.load_balancer.google_compute_url_map.default: Still destroying... [id=projects/<project-name>/global/urlMaps/web-url-map, 10s elapsed]
+module.load_balancer.google_compute_url_map.default: Destruction complete after 11s
+module.load_balancer.google_compute_backend_service.web_backend: Destroying... [id=projects/<project-name>/global/backendServices/dev--web-backend-service]
+module.load_balancer.google_compute_backend_service.web_backend: Still destroying... [id=projects/<project-name>/global/backendServices/dev--web-backend-service, 10s elapsed]
+module.load_balancer.google_compute_backend_service.web_backend: Still destroying... [id=projects/<project-name>/global/backendServices/dev--web-backend-service, 20s elapsed]
+module.load_balancer.google_compute_backend_service.web_backend: Still destroying... [id=projects/<project-name>/global/backendServices/dev--web-backend-service, 30s elapsed]
+module.load_balancer.google_compute_backend_service.web_backend: Still destroying... [id=projects/<project-name>/global/backendServices/dev--web-backend-service, 40s elapsed]
+module.load_balancer.google_compute_backend_service.web_backend: Destruction complete after 42s
+module.load_balancer.google_compute_health_check.http: Destroying... [id=projects/<project-name>/global/healthChecks/dev--http-health-check]
+module.compute.google_compute_region_instance_group_manager.web_servers: Destroying... [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 10s elapsed]
+module.load_balancer.google_compute_health_check.http: Still destroying... [id=projects/<project-name>/global/healthChecks/dev--http-health-check, 10s elapsed]
+module.load_balancer.google_compute_health_check.http: Destruction complete after 12s
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 20s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 30s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 40s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 50s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 1m0s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 1m10s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Still destroying... [id=projects/<project-name>/regions/...nstanceGroupManagers/web-servers-group, 1m20s elapsed]
+module.compute.google_compute_region_instance_group_manager.web_servers: Destruction complete after 1m22s
+module.compute.google_compute_instance_template.web_server: Destroying... [id=projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001]
+module.compute.google_compute_instance_template.web_server: Still destroying... [id=projects/<project-name>/global/i...r-template--20250326091616904000000001, 10s elapsed]
+module.compute.google_compute_instance_template.web_server: Destruction complete after 11s
+module.networking.google_compute_subnetwork.subnet: Destroying... [id=projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet]
+module.networking.google_compute_subnetwork.subnet: Still destroying... [id=projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet, 10s elapsed]
+module.networking.google_compute_subnetwork.subnet: Destruction complete after 11s
+module.networking.google_compute_network.vpc_network: Destroying... [id=projects/<project-name>/global/networks/webapp-vpc]
+module.networking.google_compute_network.vpc_network: Still destroying... [id=projects/<project-name>/global/networks/webapp-vpc, 10s elapsed]
+module.networking.google_compute_network.vpc_network: Still destroying... [id=projects/<project-name>/global/networks/webapp-vpc, 20s elapsed]
+module.networking.google_compute_network.vpc_network: Destruction complete after 22s
+
+Destroy complete! Resources: 15 destroyed.

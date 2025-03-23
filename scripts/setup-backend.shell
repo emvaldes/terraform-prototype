@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# File: scripts/setup-backend.shell
+# Version: 0.1.0
+
+set -euo pipefail
+
+# CONFIG
+STATE_PREFIX="terraform/state"
+MODE="${1:-}"
+
+PROJECT_FILE="project.json"
+BUCKET_NAME=$(jq -r '.storage.bucket' "$PROJECT_FILE")
+
+WORKSPACES_FILE="workspaces.json"
+TARGETS=$(jq -r '.targets | keys[]' "$WORKSPACES_FILE")
+
+LOCAL_STATE_DIR="local-state"
+
+# REQUIREMENTS
+command -v jq >/dev/null || { echo "'jq' is required but not installed."; exit 1; }
+command -v gsutil >/dev/null || { echo "'gsutil' is required but not installed."; exit 1; }
+command -v gcloud >/dev/null || { echo "'gcloud' is required but not installed."; exit 1; }
+command -v terraform >/dev/null || { echo "'terraform' is required but not installed."; exit 1; }
+
+# FUNCTION: download terraform state files
+download_states() {
+  echo "Checking for remote Terraform state files..."
+  local found_any_state=0
+  mkdir -p "$LOCAL_STATE_DIR"
+
+  for ws in $TARGETS; do
+
+    # STATE_PATH="gs://${BUCKET_NAME}/${STATE_PREFIX}/${ws}/terraform.tfstate"
+    STATE_PATH="gs://${BUCKET_NAME}/${STATE_PREFIX}/${ws}.tfstate"
+    DEST_PATH="${LOCAL_STATE_DIR}/${ws}.tfstate"
+
+    # if gsutil -q stat "$STATE_PATH"; then
+    #   echo "Found state for '$ws'. Downloading..."
+    #   gsutil cp "$STATE_PATH" "$DEST_PATH"
+    #   found_any_state=1
+    # else
+    #   echo "No state file found for workspace '$ws'"
+    # fi
+    if gsutil -q stat "$STATE_PATH"; then
+      echo "Found state for '$ws'. Downloading..."
+      gsutil cp "$STATE_PATH" "$DEST_PATH"
+      convert_to_json "$DEST_PATH"
+      found_any_state=1
+    else
+      echo "No state file found for workspace '$ws'"
+    fi
+
+  done
+
+  if [[ "$found_any_state" -eq 0 ]]; then
+    echo "No state files downloaded. Cleaning up empty $LOCAL_STATE_DIR/"
+    rm -rf "$LOCAL_STATE_DIR"
+    return 1
+  fi
+
+  return 0
+}
+
+# FUNCTION: convert terraform state to JSON
+convert_to_json() {
+  local state_file="$1"
+  local json_file="${state_file%.tfstate}.json"
+
+  echo "Exporting JSON for: $state_file"
+  terraform show -json "$state_file" | jq . > "$json_file"
+}
+
+# DEFAULT MODE: no arguments
+if [[ -z "$MODE" ]]; then
+  if gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    echo "Bucket exists: gs://${BUCKET_NAME}"
+    exit 0
+  else
+    echo "Bucket does not exist: gs://${BUCKET_NAME}"
+    exit 1
+  fi
+fi
+
+# MODE: --create
+if [[ "$MODE" == "--create" ]]; then
+  if gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    echo "Bucket already exists: gs://${BUCKET_NAME}"
+  else
+    echo "Creating bucket: gs://${BUCKET_NAME}"
+    gsutil mb -p "$(gcloud config get-value project)" -l us -b on "gs://${BUCKET_NAME}"
+    echo "Bucket created."
+  fi
+  echo "Bucket configuration:"
+  gcloud storage buckets describe "gs://${BUCKET_NAME}" --format=json
+  exit 0
+fi
+
+# MODE: --download
+if [[ "$MODE" == "--download" ]]; then
+  if ! gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    echo "Bucket does not exist: gs://${BUCKET_NAME}"
+    exit 1
+  fi
+
+  if download_states; then
+    echo "Download complete. Files saved under $LOCAL_STATE_DIR/"
+  fi
+
+  exit 0
+fi
+
+# MODE: --destroy
+if [[ "$MODE" == "--destroy" ]]; then
+  if ! gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    echo "Bucket already deleted: gs://${BUCKET_NAME}"
+    exit 0
+  fi
+
+  echo "Checking for existing state files before deletion..."
+  if download_states; then
+    echo "Terraform states found and downloaded."
+  else
+    echo "No remote Terraform states found."
+  fi
+
+  echo
+  echo "This will permanently DELETE: gs://${BUCKET_NAME}"
+  echo "You have 10 seconds to cancel. Default is YES."
+  read -t 10 -p "Type 'YES' to confirm: " CONFIRM || CONFIRM="YES"
+
+  if [[ "$CONFIRM" == "YES" ]]; then
+    gsutil -m -o "GSUtil:parallel_process_count=1" rm -r "gs://${BUCKET_NAME}" || {
+      echo "Failed to delete bucket."
+      exit 1
+    }
+    echo "Bucket deleted. Local backup is under $LOCAL_STATE_DIR/"
+  else
+    echo "Cancelled. No action taken."
+  fi
+  exit 0
+fi
+
+# MODE: --config
+if [[ "$MODE" == "--config" ]]; then
+  echo "Bucket configuration:"
+  gcloud storage buckets describe "gs://${BUCKET_NAME}" --format=json
+  exit 0
+fi
+
+# UNKNOWN ARG
+echo "Invalid or missing option."
+echo "Usage:"
+echo "  $0 --create      # Create GCS bucket if missing"
+echo "  $0 --download    # Download available Terraform state files"
+echo "  $0 --destroy     # Destroy bucket (only if safe)"
+echo "  $0 --config      # Show bucket configuration"
+echo "  $0               # Check if bucket exists (no-op mode)"
+exit 1

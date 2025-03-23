@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+
+# File: scripts/inspect-services.shell
+# Version: 0.0.1
+
+set -euo pipefail
+
+forwarding_rule_name="${1:-http-forwarding-rule}";
+output_format="json";
+liner="
+================================================================================
+";
+
+function forwarding_rules () {
+    local forwarding_rule__json="$(
+      gcloud compute forwarding-rules \
+             describe "${forwarding_rule_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    # {
+    #   "IPAddress": "34.54.181.111",
+    #   "IPProtocol": "TCP",
+    #   "creationTimestamp": "2025-03-25T16:19:05.242-07:00",
+    #   "description": "",
+    #   "fingerprint": "WsmQhCiCIIA=",
+    #   "id": "2844067264222627590",
+    #   "kind": "compute#forwardingRule",
+    #   "labelFingerprint": "42WmSpB8rSM=",
+    #   "loadBalancingScheme": "EXTERNAL",
+    #   "name": "http-forwarding-rule",
+    #   "networkTier": "PREMIUM",
+    #   "portRange": "80-80",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/http-forwarding-rule",
+    #   "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy"
+    # }
+    if [[ ! -z ${forwarding_rule__json} ]]; then
+      ## Heading components
+      local command="gcloud compute forwarding-rules describe \"${forwarding_rule_name}\" --global --format=${output_format}";
+      echo -e "${liner}Forwarding Rule Description: ${forwarding_rule_name}\n${command}\n";
+      ## JSON Output:
+      jq . <<< ${forwarding_rule__json};
+      ## Extracting properties:
+      ## target_ip_address=$( gcloud compute forwarding-rules describe ${forwarding_rule_name} --global --format="get(IPAddress)" );
+      target_ip_address=$( jq -r '.IPAddress' <<< "${forwarding_rule__json}" );
+      target_proxy_url=$( jq -r '.target' <<< "${forwarding_rule__json}" );
+      target_proxy_name=$( basename "$target_proxy_url" );
+    fi;
+    return 0;
+  }; alias forwarding-rules='forwarding_rules';
+
+function target_http_proxies () {
+    local target_http_proxies__json="$(
+      gcloud compute target-http-proxies \
+             describe "${target_proxy_name}" \
+             --format=${output_format}
+    )";
+    # {
+    #   "creationTimestamp": "2025-03-25T16:18:53.839-07:00",
+    #   "fingerprint": "rjXWNnru1g0=",
+    #   "id": "3923955504250783538",
+    #   "kind": "compute#targetHttpProxy",
+    #   "name": "web-http-proxy",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy",
+    #   "urlMap": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
+    # }
+    if [[ ! -z ${target_http_proxies__json} ]]; then
+      ## Heading components
+      local command="gcloud compute target-http-proxies describe \"${target_proxy_name}\" --format=${output_format}";
+      echo -e "${liner}Target HTTP Proxy: ${target_proxy_name}\n${command}\n";
+      ## JSON Output:
+      jq . <<< ${target_http_proxies__json};
+      ## Extracting properties:
+      url_map_url=$( jq -r '.urlMap' <<< "$target_http_proxies__json" );
+      url_map_name=$( basename "${url_map_url}" );
+    fi;
+    return 0;
+  }; alias target-http-proxies='target_http_proxies';
+
+function url_maps () {
+    local url_maps__json="$(
+      gcloud compute url-maps \
+             describe "${url_map_name}" \
+             --format=${output_format}
+    )";
+    # {
+    #   "creationTimestamp": "2025-03-25T16:18:42.727-07:00",
+    #   "defaultService": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/web-backend-service",
+    #   "fingerprint": "OCnYELTsMis=",
+    #   "id": "2316785682754733885",
+    #   "kind": "compute#urlMap",
+    #   "name": "web-url-map",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
+    # }
+    if [[ ! -z ${url_maps__json} ]]; then
+      ## Heading components
+      local command="gcloud compute url-maps describe \"${url_map_name}\" --format=${output_format}";
+      echo -e "${liner}URL Map: ${url_map_name}\n${command}\n";
+      ## JSON Output:
+      jq . <<< ${url_maps__json};
+      ## Extracting properties:
+      backend_service_url=$( jq -r '.defaultService' <<<  "${url_maps__json}" );
+      backend_service_name=$( basename "${backend_service_url}" );
+    fi;
+    return 0;
+  }; alias url-maps='url_maps';
+
+function backend_services () {
+    local backend_services__json="$(
+      gcloud compute backend-services \
+             describe "${backend_service_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    # {
+    #   "affinityCookieTtlSec": 0,
+    #   "backends": [
+    #     {
+    #       "balancingMode": "UTILIZATION",
+    #       "capacityScaler": 1.0,
+    #       "group": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group"
+    #     }
+    #   ],
+    #   "connectionDraining": {
+    #     "drainingTimeoutSec": 300
+    #   },
+    #   "creationTimestamp": "2025-03-25T16:18:00.167-07:00",
+    #   "description": "",
+    #   "enableCDN": false,
+    #   "fingerprint": "t3HyhsldE6Y=",
+    #   "healthChecks": [
+    #     "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/http-health-check"
+    #   ],
+    #   "id": "2850484181586052935",
+    #   "kind": "compute#backendService",
+    #   "loadBalancingScheme": "EXTERNAL",
+    #   "name": "web-backend-service",
+    #   "port": 80,
+    #   "portName": "http",
+    #   "protocol": "HTTP",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/web-backend-service",
+    #   "sessionAffinity": "NONE",
+    #   "timeoutSec": 30,
+    #   "usedBy": [
+    #     {
+    #       "reference": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
+    #     }
+    #   ]
+    # }
+    if [[ ! -z ${backend_services__json} ]]; then
+      ## Heading components
+      local command="gcloud compute backend-services describe \"${backend_service_name}\" --global --format=${output_format}";
+      echo -e "${liner}Backend Service: ${backend_service_name}\n${command}\n";
+      ## JSON Output:
+      jq . <<< ${backend_services__json};
+      ## Extracting properties:
+      instance_group_url=$( jq -r '.backends[0].group' <<< "${backend_services__json}" );
+      instance_group_name=$( basename "${instance_group_url}" );
+      instance_group_zone=$( echo "${instance_group_url}" | awk -F/ '{print $(NF-2)}' )
+    fi;
+    return 0;
+  }; alias backend-services='backend_services';
+
+function health_status () {
+    local health_status__json="$(
+      gcloud compute backend-services \
+             get-health "${backend_service_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    # [
+    #   {
+    #     "backend": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group",
+    #     "status": {
+    #       "healthStatus": [
+    #         {
+    #           "healthState": "HEALTHY",
+    #           "instance": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a/instances/web-server-ph2z",
+    #           "ipAddress": "10.0.1.2",
+    #           "port": 80
+    #         }
+    #       ],
+    #       "kind": "compute#backendServiceGroupHealth"
+    #     }
+    #   }
+    # ]
+    if [[ ! -z ${health_status__json} ]]; then
+      ## Heading components
+      local command="gcloud compute backend-services get-health \"${backend_service_name}\" --global --format=${output_format}";
+      echo -e "${liner}Backend Health Status\n${command}\n";
+      ## JSON Output:
+      jq . <<< ${health_status__json};
+      ## Extracting properties:
+      health_status_state=$( jq -r '.[].status.healthStatus[].healthState' <<< "${health_status__json}" );
+    fi;
+    return 0;
+  }; alias health-status='health_status';
+
+function instance_groups () {
+    local instance_data__json=$(
+      gcloud compute instance-groups \
+             list-instances "${instance_group_name}" \
+             --region="$instance_group_zone" \
+             --format=${output_format}
+    );
+    echo "$instance_data__json" | jq -r '.[].instance' \
+    | while read -r instance_url; do
+      instance_zone=$(
+        echo "${instance_url}" | cut -d'/' -f9
+      );
+      instance_name=$(
+        echo "${instance_url}" | cut -d'/' -f11
+      );
+      echo -e "\nInstance: ${instance_name} (${instance_zone})"
+      gcloud compute instances \
+             describe "${instance_name}" \
+             --zone="${instance_zone}" \
+             --format=${output_format} \
+      | jq .;
+    done;
+    return 0;
+  }; alias instance-groups='instance_groups';
+
+function webserver_response () {
+    ## Heading components
+    local command="curl -I --connect-timeout 5 \"http://${target_ip_address}\"";
+    echo -e "${liner}Web Server HTTP Response Check\n${command}\n";
+    if [[ -z "${target_ip_address}" ]]; then
+            echo -e "Warning: Could not resolve IP address from forwarding rule!";
+            exit 1;
+      else  echo -e "Waiting for web-server (${target_ip_address}) response ...\n";
+            until curl --head --silent --location \
+                       --connect-timeout 10 http://${target_ip_address} \
+                  | grep -q "200 OK"; do
+              printf "."; sleep 5;
+            done;
+            curl --head --silent --location \
+                 --connect-timeout 10 \
+                 http://${target_ip_address} || echo "Request failed";
+    fi;
+    # HTTP/1.1 200 OK
+    # Date: Wed, 26 Mar 2025 02:08:30 GMT
+    # Server: Apache/2.4.62 (Debian)
+    # Last-Modified: Wed, 26 Mar 2025 01:59:17 GMT
+    # ETag: "36-631352f54ae7d"
+    # Accept-Ranges: bytes
+    # Content-Length: 54
+    # Content-Type: text/html
+    # Via: 1.1 google
+    return 0;
+  }; alias webserver-response='webserver_response';
+
+forwarding_rules;
+  echo -e;
+  echo -e "External IP: ${target_ip_address}";
+  echo -e "Target Proxy: ${target_proxy_name}";
+
+target_http_proxies;
+  echo -e;
+  echo -e "URL Map: ${url_map_name}";
+
+url_maps;
+  echo -e;
+  echo -e "Backend Service: ${backend_service_name}";
+
+backend_services;
+  echo -e;
+  echo -e "Group Instance: ${instance_group_name}";
+  echo -e "Group Zone: ${instance_group_zone}";
+
+health_status;
+  echo -e;
+  echo -e "Health Status - State: ${health_status_state}";
+
+webserver_response;
+
+instance_groups;
+
+echo -e "\nCompleted the Application Load Balancer inspection.\n";
+
+# command="gcloud compute forwarding-rules list --global --format=${output_format}";
+# echo -e "${liner}Global Forwarding Rules\n${command}\n";
+# gcloud compute forwarding-rules list --global --format=${output_format};
+
+# [
+#   {
+#     "IPAddress": "34.54.181.111",
+#     "IPProtocol": "TCP",
+#     "creationTimestamp": "2025-03-25T16:19:05.242-07:00",
+#     "description": "",
+#     "fingerprint": "WsmQhCiCIIA=",
+#     "id": "2844067264222627590",
+#     "kind": "compute#forwardingRule",
+#     "labelFingerprint": "42WmSpB8rSM=",
+#     "loadBalancingScheme": "EXTERNAL",
+#     "name": "http-forwarding-rule",
+#     "networkTier": "PREMIUM",
+#     "portRange": "80-80",
+#     "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/http-forwarding-rule",
+#     "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy"
+#   }
+# ]

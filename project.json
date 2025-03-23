@@ -1,0 +1,10 @@
+{
+  "provider": "gcp",
+  "storage": {
+    "bucket": "multi-cloud-terraform-state"
+  },
+  "gcp": {
+    "project": "static-lead-454601-q1",
+    "credentials": ""
+  }
+}

@@ -1,0 +1,40 @@
+$ gcloud compute networks subnets list --format=json ;
+
+[
+  {
+    "creationTimestamp": "2025-03-22T19:49:51.225-07:00",
+    "fingerprint": "XXXXXXX=",
+    "gatewayAddress": "10.100.0.1",
+    "id": "123456789012345678",
+    "ipCidrRange": "10.100.0.0/20",
+    "kind": "compute#subnetwork",
+    "name": "example-subnet",
+    "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/default",
+    "privateIpGoogleAccess": false,
+    "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+    "purpose": "PRIVATE",
+    "region": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-central1",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-central1/subnetworks/example-subnet",
+    "stackType": "IPV4_ONLY"
+  },
+  {
+    "creationTimestamp": "2025-03-24T12:15:54.396-07:00",
+    "enableFlowLogs": false,
+    "fingerprint": "XXXXXXX=",
+    "gatewayAddress": "10.200.1.1",
+    "id": "987654321098765432",
+    "ipCidrRange": "10.200.1.0/24",
+    "kind": "compute#subnetwork",
+    "logConfig": {
+      "enable": false
+    },
+    "name": "example-webapp-subnet",
+    "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc",
+    "privateIpGoogleAccess": false,
+    "privateIpv6GoogleAccess": "DISABLE_GOOGLE_ACCESS",
+    "purpose": "PRIVATE",
+    "region": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/example-webapp-subnet",
+    "stackType": "IPV4_ONLY"
+  }
+]

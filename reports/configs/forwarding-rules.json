@@ -1,0 +1,20 @@
+$ gcloud compute forwarding-rules list --global --format=json ;
+
+[
+  {
+    "IPAddress": "203.0.113.45",
+    "IPProtocol": "TCP",
+    "creationTimestamp": "2025-03-24T12:17:56.012-07:00",
+    "description": "",
+    "fingerprint": "FakeFingerprint123==",
+    "id": "1234567890123456789",
+    "kind": "compute#forwardingRule",
+    "labelFingerprint": "FakeFingerprint123==",
+    "loadBalancingScheme": "EXTERNAL",
+    "name": "http-forwarding-rule",
+    "networkTier": "PREMIUM",
+    "portRange": "80-80",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/http-forwarding-rule",
+    "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy"
+  }
+]

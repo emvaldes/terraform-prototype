@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# File: /scripts/setup-webserver.shell
+# Version: 0.1.0
+
+# Update package lists
+sudo apt update -y;
+
+# Install Apache web server
+sudo apt install -y apache2;
+
+# Start and enable Apache
+sudo systemctl start apache2;
+sudo systemctl enable apache2;
+
+# Create a simple HTML page to verify the instance is running
+echo -e "<h1>Server $(hostname) is running behind ALB</h1>" \
+   | sudo tee /var/www/html/index.html;

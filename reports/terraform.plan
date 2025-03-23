@@ -1,0 +1,476 @@
+$ terraform plan ;
+
+module.compute.data.google_compute_zones.available: Reading...
+module.compute.data.google_compute_zones.available: Read complete after 0s [id=projects/<project-name>/regions/us-west2]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+ <= read (data resources)
+
+Terraform will perform the following actions:
+
+  # module.compute.data.google_compute_region_instance_group_manager.web_servers will be read during apply
+  # (depends on a resource or a module with changes pending)
+ <= data "google_compute_region_instance_group_manager" "web_servers" {
+      + all_instances_config             = (known after apply)
+      + auto_healing_policies            = (known after apply)
+      + base_instance_name               = (known after apply)
+      + creation_timestamp               = (known after apply)
+      + description                      = (known after apply)
+      + distribution_policy_target_shape = (known after apply)
+      + distribution_policy_zones        = (known after apply)
+      + fingerprint                      = (known after apply)
+      + id                               = (known after apply)
+      + instance_flexibility_policy      = (known after apply)
+      + instance_group                   = (known after apply)
+      + instance_group_manager_id        = (known after apply)
+      + instance_lifecycle_policy        = (known after apply)
+      + list_managed_instances_results   = (known after apply)
+      + name                             = "web-servers-group"
+      + named_port                       = (known after apply)
+      + project                          = "<project-name>"
+      + region                           = "us-west2"
+      + standby_policy                   = (known after apply)
+      + stateful_disk                    = (known after apply)
+      + stateful_external_ip             = (known after apply)
+      + stateful_internal_ip             = (known after apply)
+      + status                           = (known after apply)
+      + target_pools                     = (known after apply)
+      + target_size                      = (known after apply)
+      + target_stopped_size              = (known after apply)
+      + target_suspended_size            = (known after apply)
+      + update_policy                    = (known after apply)
+      + version                          = (known after apply)
+      + wait_for_instances               = (known after apply)
+      + wait_for_instances_status        = (known after apply)
+    }
+
+  # module.compute.google_compute_health_check.http will be created
+  + resource "google_compute_health_check" "http" {
+      + check_interval_sec  = 5
+      + creation_timestamp  = (known after apply)
+      + healthy_threshold   = 2
+      + id                  = (known after apply)
+      + name                = "http-health-check-us-west2"
+      + project             = "<project-name>"
+      + self_link           = (known after apply)
+      + timeout_sec         = 5
+      + type                = (known after apply)
+      + unhealthy_threshold = 2
+
+      + http_health_check {
+          + port         = 80
+          + proxy_header = "NONE"
+          + request_path = "/"
+        }
+
+      + log_config (known after apply)
+    }
+
+  # module.compute.google_compute_instance_template.web_server will be created
+  + resource "google_compute_instance_template" "web_server" {
+      + can_ip_forward       = false
+      + creation_timestamp   = (known after apply)
+      + effective_labels     = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + id                   = (known after apply)
+      + machine_type         = "e2-micro"
+      + metadata             = {
+          + "startup-script" = <<-EOT
+                #!/bin/bash
+
+                # Update package lists
+                sudo apt update -y;
+
+                # Install Apache web server
+                sudo apt install -y apache2;
+
+                # Start and enable Apache
+                sudo systemctl start apache2;
+                sudo systemctl enable apache2;
+
+                # Create a simple HTML page to verify the instance is running
+                echo -e "<h1>Server $(hostname) is running behind ALB</h1>" \
+                   | sudo tee /var/www/html/index.html;
+            EOT
+        }
+      + metadata_fingerprint = (known after apply)
+      + name                 = (known after apply)
+      + name_prefix          = "web-server-template"
+      + project              = "<project-name>"
+      + region               = "us-west2"
+      + self_link            = (known after apply)
+      + self_link_unique     = (known after apply)
+      + tags                 = [
+          + "couchsurfing",
+          + "http-server",
+          + "ssh-access",
+        ]
+      + tags_fingerprint     = (known after apply)
+      + terraform_labels     = {
+          + "goog-terraform-provisioned" = "true"
+        }
+
+      + confidential_instance_config (known after apply)
+
+      + disk {
+          + auto_delete            = true
+          + boot                   = true
+          + device_name            = (known after apply)
+          + disk_size_gb           = (known after apply)
+          + disk_type              = (known after apply)
+          + interface              = (known after apply)
+          + mode                   = (known after apply)
+          + provisioned_iops       = (known after apply)
+          + provisioned_throughput = (known after apply)
+          + source_image           = "debian-cloud/debian-11"
+          + type                   = (known after apply)
+        }
+
+      + network_interface {
+          + internal_ipv6_prefix_length = (known after apply)
+          + ipv6_access_type            = (known after apply)
+          + ipv6_address                = (known after apply)
+          + name                        = (known after apply)
+          + network                     = (known after apply)
+          + stack_type                  = (known after apply)
+          + subnetwork                  = (known after apply)
+          + subnetwork_project          = (known after apply)
+        }
+
+      + scheduling (known after apply)
+    }
+
+  # module.compute.google_compute_region_instance_group_manager.web_servers will be created
+  + resource "google_compute_region_instance_group_manager" "web_servers" {
+      + base_instance_name               = "web-server"
+      + creation_timestamp               = (known after apply)
+      + distribution_policy_target_shape = (known after apply)
+      + distribution_policy_zones        = [
+          + "us-west2-a",
+          + "us-west2-b",
+          + "us-west2-c",
+        ]
+      + fingerprint                      = (known after apply)
+      + id                               = (known after apply)
+      + instance_group                   = (known after apply)
+      + instance_group_manager_id        = (known after apply)
+      + list_managed_instances_results   = "PAGELESS"
+      + name                             = "web-servers-group"
+      + project                          = "<project-name>"
+      + region                           = "us-west2"
+      + self_link                        = (known after apply)
+      + status                           = (known after apply)
+      + target_size                      = 1
+      + target_stopped_size              = (known after apply)
+      + target_suspended_size            = (known after apply)
+      + wait_for_instances               = false
+      + wait_for_instances_status        = "STABLE"
+
+      + instance_lifecycle_policy (known after apply)
+
+      + standby_policy (known after apply)
+
+      + update_policy (known after apply)
+
+      + version {
+          + instance_template = (known after apply)
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_http_https will be created
+  + resource "google_compute_firewall" "allow_http_https" {
+      + creation_timestamp = (known after apply)
+      + destination_ranges = (known after apply)
+      + direction          = (known after apply)
+      + enable_logging     = (known after apply)
+      + id                 = (known after apply)
+      + name               = "allow-http-https"
+      + network            = (known after apply)
+      + priority           = 1000
+      + project            = "<project-name>"
+      + self_link          = (known after apply)
+      + source_ranges      = [
+          + "0.0.0.0/0",
+        ]
+
+      + allow {
+          + ports    = [
+              + "80",
+              + "443",
+            ]
+          + protocol = "tcp"
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_ssh will be created
+  + resource "google_compute_firewall" "allow_ssh" {
+      + creation_timestamp = (known after apply)
+      + destination_ranges = (known after apply)
+      + direction          = (known after apply)
+      + enable_logging     = (known after apply)
+      + id                 = (known after apply)
+      + name               = "allow-ssh-restricted"
+      + network            = (known after apply)
+      + priority           = 1000
+      + project            = "<project-name>"
+      + self_link          = (known after apply)
+      + source_ranges      = [
+          + "10.0.0.0/8",
+          + "35.235.240.0/20",
+          + "68.109.187.94",
+        ]
+      + target_tags        = [
+          + "ssh-access",
+        ]
+
+      + allow {
+          + ports    = [
+              + "22",
+            ]
+          + protocol = "tcp"
+        }
+    }
+
+  # module.firewall.google_compute_firewall.allow_ssh_iap will be created
+  + resource "google_compute_firewall" "allow_ssh_iap" {
+      + creation_timestamp = (known after apply)
+      + destination_ranges = (known after apply)
+      + direction          = (known after apply)
+      + enable_logging     = (known after apply)
+      + id                 = (known after apply)
+      + name               = "allow-ssh-iap"
+      + network            = (known after apply)
+      + priority           = 1000
+      + project            = "<project-name>"
+      + self_link          = (known after apply)
+      + source_ranges      = [
+          + "35.235.240.0/20",
+        ]
+      + target_tags        = [
+          + "ssh-access",
+        ]
+
+      + allow {
+          + ports    = [
+              + "22",
+            ]
+          + protocol = "tcp"
+        }
+    }
+
+  # module.load_balancer.google_compute_backend_service.web_backend will be created
+  + resource "google_compute_backend_service" "web_backend" {
+      + connection_draining_timeout_sec = 300
+      + creation_timestamp              = (known after apply)
+      + fingerprint                     = (known after apply)
+      + generated_id                    = (known after apply)
+      + health_checks                   = (known after apply)
+      + id                              = (known after apply)
+      + load_balancing_scheme           = "EXTERNAL"
+      + name                            = "web-backend-service"
+      + port_name                       = (known after apply)
+      + project                         = "<project-name>"
+      + protocol                        = "HTTP"
+      + self_link                       = (known after apply)
+      + session_affinity                = (known after apply)
+      + timeout_sec                     = 30
+
+      + backend {
+          + balancing_mode               = "UTILIZATION"
+          + capacity_scaler              = 1
+          + group                        = (known after apply)
+          + max_connections              = (known after apply)
+          + max_connections_per_endpoint = (known after apply)
+          + max_connections_per_instance = (known after apply)
+          + max_rate                     = (known after apply)
+          + max_rate_per_endpoint        = (known after apply)
+          + max_rate_per_instance        = (known after apply)
+          + max_utilization              = (known after apply)
+            # (1 unchanged attribute hidden)
+        }
+
+      + cdn_policy (known after apply)
+
+      + iap (known after apply)
+
+      + log_config (known after apply)
+    }
+
+  # module.load_balancer.google_compute_global_forwarding_rule.http will be created
+  + resource "google_compute_global_forwarding_rule" "http" {
+      + base_forwarding_rule  = (known after apply)
+      + effective_labels      = (known after apply)
+      + forwarding_rule_id    = (known after apply)
+      + id                    = (known after apply)
+      + ip_address            = (known after apply)
+      + ip_protocol           = (known after apply)
+      + label_fingerprint     = (known after apply)
+      + load_balancing_scheme = "EXTERNAL"
+      + name                  = "http-forwarding-rule"
+      + network               = (known after apply)
+      + network_tier          = (known after apply)
+      + port_range            = "80"
+      + project               = "<project-name>"
+      + psc_connection_id     = (known after apply)
+      + psc_connection_status = (known after apply)
+      + self_link             = (known after apply)
+      + subnetwork            = (known after apply)
+      + target                = (known after apply)
+      + terraform_labels      = (known after apply)
+
+      + service_directory_registrations (known after apply)
+    }
+
+  # module.load_balancer.google_compute_health_check.http will be created
+  + resource "google_compute_health_check" "http" {
+      + check_interval_sec  = 5
+      + creation_timestamp  = (known after apply)
+      + healthy_threshold   = 2
+      + id                  = (known after apply)
+      + name                = "http-health-check"
+      + project             = "<project-name>"
+      + self_link           = (known after apply)
+      + timeout_sec         = 5
+      + type                = (known after apply)
+      + unhealthy_threshold = 2
+
+      + http_health_check {
+          + port         = 80
+          + proxy_header = "NONE"
+          + request_path = "/"
+        }
+
+      + log_config (known after apply)
+    }
+
+  # module.load_balancer.google_compute_target_http_proxy.default will be created
+  + resource "google_compute_target_http_proxy" "default" {
+      + creation_timestamp = (known after apply)
+      + id                 = (known after apply)
+      + name               = "web-http-proxy"
+      + project            = "<project-name>"
+      + proxy_bind         = (known after apply)
+      + proxy_id           = (known after apply)
+      + self_link          = (known after apply)
+      + url_map            = (known after apply)
+    }
+
+  # module.load_balancer.google_compute_url_map.default will be created
+  + resource "google_compute_url_map" "default" {
+      + creation_timestamp = (known after apply)
+      + default_service    = (known after apply)
+      + fingerprint        = (known after apply)
+      + id                 = (known after apply)
+      + map_id             = (known after apply)
+      + name               = "web-url-map"
+      + project            = "<project-name>"
+      + self_link          = (known after apply)
+    }
+
+  # module.networking.google_compute_network.vpc_network will be created
+  + resource "google_compute_network" "vpc_network" {
+      + auto_create_subnetworks                   = false
+      + bgp_always_compare_med                    = (known after apply)
+      + bgp_best_path_selection_mode              = (known after apply)
+      + bgp_inter_region_cost                     = (known after apply)
+      + delete_default_routes_on_create           = false
+      + gateway_ipv4                              = (known after apply)
+      + id                                        = (known after apply)
+      + internal_ipv6_range                       = (known after apply)
+      + mtu                                       = (known after apply)
+      + name                                      = "webapp-vpc"
+      + network_firewall_policy_enforcement_order = "AFTER_CLASSIC_FIREWALL"
+      + network_id                                = (known after apply)
+      + numeric_id                                = (known after apply)
+      + project                                   = "<project-name>"
+      + routing_mode                              = (known after apply)
+      + self_link                                 = (known after apply)
+    }
+
+  # module.networking.google_compute_router.nat_router will be created
+  + resource "google_compute_router" "nat_router" {
+      + creation_timestamp = (known after apply)
+      + id                 = (known after apply)
+      + name               = "webapp-router"
+      + network            = (known after apply)
+      + project            = "<project-name>"
+      + region             = "us-west2"
+      + self_link          = (known after apply)
+    }
+
+  # module.networking.google_compute_router_nat.nat_config will be created
+  + resource "google_compute_router_nat" "nat_config" {
+      + auto_network_tier                   = (known after apply)
+      + drain_nat_ips                       = (known after apply)
+      + enable_dynamic_port_allocation      = (known after apply)
+      + enable_endpoint_independent_mapping = true
+      + endpoint_types                      = (known after apply)
+      + icmp_idle_timeout_sec               = 30
+      + id                                  = (known after apply)
+      + min_ports_per_vm                    = (known after apply)
+      + name                                = "webapp-nat-config"
+      + nat_ip_allocate_option              = "AUTO_ONLY"
+      + nat_ips                             = (known after apply)
+      + project                             = "<project-name>"
+      + region                              = "us-west2"
+      + router                              = "webapp-router"
+      + source_subnetwork_ip_ranges_to_nat  = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+      + tcp_established_idle_timeout_sec    = 1200
+      + tcp_time_wait_timeout_sec           = 120
+      + tcp_transitory_idle_timeout_sec     = 30
+      + udp_idle_timeout_sec                = 30
+
+      + log_config {
+          + enable = true
+          + filter = "ERRORS_ONLY"
+        }
+    }
+
+  # module.networking.google_compute_subnetwork.subnet will be created
+  + resource "google_compute_subnetwork" "subnet" {
+      + creation_timestamp         = (known after apply)
+      + enable_flow_logs           = (known after apply)
+      + external_ipv6_prefix       = (known after apply)
+      + fingerprint                = (known after apply)
+      + gateway_address            = (known after apply)
+      + id                         = (known after apply)
+      + internal_ipv6_prefix       = (known after apply)
+      + ip_cidr_range              = "10.0.1.0/24"
+      + ipv6_cidr_range            = (known after apply)
+      + ipv6_gce_endpoint          = (known after apply)
+      + name                       = "webapp-subnet"
+      + network                    = (known after apply)
+      + private_ip_google_access   = (known after apply)
+      + private_ipv6_google_access = (known after apply)
+      + project                    = "<project-name>"
+      + purpose                    = (known after apply)
+      + region                     = "us-west2"
+      + self_link                  = (known after apply)
+      + stack_type                 = (known after apply)
+      + state                      = (known after apply)
+      + subnetwork_id              = (known after apply)
+
+      + secondary_ip_range (known after apply)
+    }
+
+Plan: 15 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + console_ips   = [
+      + "35.235.240.0/20",
+    ]
+  + instance_type = "e2-micro"
+  + private_ips   = [
+      + "10.0.0.0/8",
+    ]
+  + devops_ips    = [
+      + "68.109.187.94",
+    ]
+  + region        = "us-west2"
+  + web_server_ip = (known after apply)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
