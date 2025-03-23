@@ -1,0 +1,38 @@
+$ gcloud compute ssh web-server-wvqk --zone=us-west2-c
+
+External IP address was not found; defaulting to using IAP tunneling.
+WARNING:
+
+To increase the performance of the tunnel, consider installing NumPy. For instructions,
+please see https://cloud.google.com/iap/docs/using-tcp-forwarding#increasing_the_tcp_upload_bandwidth
+
+Warning: Permanently added 'compute.8107315107241683546' (ED25519) to the list of known hosts.
+Authenticated to compute.8107315107241683546 (via proxy) using "publickey".
+Linux web-server-wvqk 5.10.0-34-cloud-amd64 #1 SMP Debian 5.10.234-1 (2025-02-24) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+emvaldes@web-server-wvqk:~$
+emvaldes@web-server-wvqk:~$ curl localhost ;
+<h1>Server web-server-wvqk is running behind ALB</h1>
+emvaldes@web-server-wvqk:~$
+emvaldes@web-server-wvqk:~$ sudo systemctl status apache2 ;
+● apache2.service - The Apache HTTP Server
+     Loaded: loaded (/lib/systemd/system/apache2.service; enabled; vendor preset: enabled)
+     Active: active (running) since Mon 2025-03-24 21:55:31 UTC; 5min ago
+       Docs: https://httpd.apache.org/docs/2.4/
+   Main PID: 1997 (apache2)
+      Tasks: 55 (limit: 1145)
+     Memory: 9.2M
+        CPU: 125ms
+     CGroup: /system.slice/apache2.service
+             ├─1997 /usr/sbin/apache2 -k start
+             ├─1999 /usr/sbin/apache2 -k start
+             └─2000 /usr/sbin/apache2 -k start
+
+Mar 24 21:55:31 web-server-wvqk systemd[1]: Starting The Apache HTTP Server...
+Mar 24 21:55:31 web-server-wvqk systemd[1]: Started The Apache HTTP Server.

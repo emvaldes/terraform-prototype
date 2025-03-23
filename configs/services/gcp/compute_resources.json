@@ -1,0 +1,14 @@
+{
+    "instance_template_name_prefix": "web-server-template--",
+    "instance_group_name": "web-servers-group",
+    "base_instance_name": "web-server",
+    "source_image": "ubuntu-os-cloud/ubuntu-2004-lts",
+    "startup_script_path": "./scripts/configure/apache-webserver.shell",
+    "health_check": {
+        "name": "http-health-check",
+        "interval": 5,
+        "timeout": 5,
+        "port": 80
+    },
+    "tags": []
+}

@@ -1,0 +1,22 @@
+{
+    "enable": true,
+    "auto_deploy": false,
+    "name": "webapp-stress-tester",
+    "description": "Stub Cloud Function for stress testing framework",
+    "entry_point": "main",
+    "runtime": "python311",
+    "memory": "256M",
+    "timeout": 60,
+    "bucket_name": "cloud-function-bucket",
+    "archive_path": "./packages",
+    "archive_name": "stressload-webservers.zip",
+    "force_destroy": true,
+    "env": {
+        "TARGET_URL": ""
+    },
+    "event_type": "google.cloud.functions.v2.eventTypes.EVENT_TRIGGERED",
+    "pubsub_topic": null,
+    "invoker_role": "roles/cloudfunctions.invoker",
+    "invoker_member": "allUsers",
+    "tags": []
+}

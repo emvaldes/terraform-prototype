@@ -1,0 +1,16 @@
+{
+    "provider": "azure",
+    "project": null,
+    "credentials": "",
+    "regions": {
+        "west": "westus",
+        "central": "centralus",
+        "east": "eastus"
+    },
+    "types": {
+        "micro": "Standard_B1s",
+        "medium": "Standard_B2s",
+        "standard": "Standard_D2s_v3"
+    },
+    "services": []
+}

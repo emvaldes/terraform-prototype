@@ -1,0 +1,11 @@
+{
+    "id": "stg",
+    "name": "staging",
+    "description": "staging environment",
+    "region": "central",
+    "type": "medium",
+    "policies": {
+        "autoscaling": "medium",
+        "stressload": "medium"
+    }
+}

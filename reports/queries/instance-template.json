@@ -1,0 +1,63 @@
+$ gcloud compute instance-templates describe web-server-template20250324191615534000000001 --format="json" ;
+
+{
+  "creationTimestamp": "2025-03-24T12:16:16.218-07:00",
+  "description": "",
+  "id": "7102960094816244112",
+  "kind": "compute#instanceTemplate",
+  "name": "web-server-template20250324191615534000000001",
+  "properties": {
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "index": 0,
+        "initializeParams": {
+          "diskType": "pd-standard",
+          "sourceImage": "projects/debian-cloud/global/images/family/debian-11"
+        },
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "type": "PERSISTENT"
+      }
+    ],
+    "labels": {
+      "goog-terraform-provisioned": "true"
+    },
+    "machineType": "e2-micro",
+    "metadata": {
+      "fingerprint": "zhOxutLqv1I=",
+      "items": [
+        {
+          "key": "startup-script",
+          "value": "#!/bin/bash\n\n# Update package lists\nsudo apt update -y;\n\n# Install Apache web server\nsudo apt install -y apache2;\n\n# Start and enable Apache\nsudo systemctl start apache2;\nsudo systemctl enable apache2;\n\n# Create a simple HTML page to verify the instance is running\necho -e \"<h1>Server $(hostname) is running behind ALB</h1>\" \\\n   | sudo tee /var/www/html/index.html;\n"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "networkInterfaces": [
+      {
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/webapp-vpc",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet"
+      }
+    ],
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "tags": {
+      "items": [
+        "couchsurfing",
+        "ssh-access",
+        "http-server"
+      ]
+    }
+  },
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/instanceTemplates/web-server-template20250324191615534000000001"
+}

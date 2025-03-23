@@ -1,0 +1,47 @@
+devops: terraform (master *%=) $ gcloud compute operations list --format=json ;
+
+[
+  {
+    "endTime": "2025-03-22T21:04:07.703-07:00",
+    "id": "1000000000000000000",
+    "insertTime": "2025-03-22T21:03:51.948-07:00",
+    "kind": "compute#operation",
+    "name": "operation-1742702631912-0000000000000-51f6f766-602fb0da",
+    "operationType": "compute.projects.setCommonInstanceMetadata",
+    "progress": 100,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/operations/operation-1742702631912-0000000000000-51f6f766-602fb0da",
+    "setCommonInstanceMetadataOperationMetadata": {
+      "clientOperationId": "operation-1742702631912-0000000000000-51f6f766-602fb0da",
+      "perLocationOperations": {
+        "us-west1-a": {
+          "state": "DONE"
+        },
+        "us-west1-b": {
+          "state": "DONE"
+        },
+        "us-west1-c": {
+          "state": "DONE"
+        }
+      }
+    },
+    "startTime": "2025-03-22T21:03:51.950-07:00",
+    "status": "DONE",
+    "targetId": "123456789012",
+    "targetLink": "https://www.googleapis.com/compute/v1/projects/<project-name>"
+  },
+  {
+    "endTime": "2025-03-23T10:45:09.550-07:00",
+    "id": "2997300444529435850",
+    "insertTime": "2025-03-24T10:45:09.102-07:00",
+    "kind": "compute#operation",
+    "name": "operation-1742838308658-6311a2a49ddac-23dc0e13-ea920d02",
+    "operationType": "compute.instanceTemplates.insert",
+    "progress": 100,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/operations/operation-1742838308658-6311a2a49ddac-23dc0e13-ea920d02",
+    "startTime": "2025-03-24T10:45:09.106-07:00",
+    "status": "DONE",
+    "targetId": "7871261668839007435",
+    "targetLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/instanceTemplates/example-instance-template-20250324174508537800000001",
+    "user": "gcp-cli-admin@<project-name>.iam.gserviceaccount.com"
+  }
+]

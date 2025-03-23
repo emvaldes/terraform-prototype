@@ -1,0 +1,19 @@
+$ gcloud compute instance-groups list --format=json ;
+
+[
+  {
+    "creationTimestamp": "2025-03-24T12:16:19.607-07:00",
+    "description": "This instance group is controlled by Regional Instance Group Manager 'example-instance-group'. To modify instances in this group, use the Regional Instance Group Manager API: https://cloud.google.com/compute/docs/reference/latest/regionInstanceGroupManagers",
+    "fingerprint": "FakeFingerprint123==",
+    "id": "9876543210987654321",
+    "instanceGroupManagerUri": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroupManagers/example-instance-group",
+    "isManaged": "Yes",
+    "kind": "compute#instanceGroup",
+    "name": "example-instance-group",
+    "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/example-vpc",
+    "region": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/example-instance-group",
+    "size": 1,
+    "subnetwork": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/example-subnet"
+  }
+]

@@ -1,0 +1,25 @@
+{
+    "http_forwarding": {
+        "name": "http-forwarding-rule",
+        "port_range": "80",
+        "scheme": "EXTERNAL"
+    },
+    "http_proxy": {
+        "name": "web-http-proxy"
+    },
+    "url_map": {
+        "name": "web-url-map"
+    },
+    "web_backend": {
+        "name": "web-backend-service",
+        "protocol": "HTTP",
+        "timeout": 30
+    },
+    "health_check": {
+        "name": "http-health-check",
+        "interval": 5,
+        "timeout": 5,
+        "port": 80
+    },
+    "tags": []
+}

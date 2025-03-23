@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# File: ./scripts/configure/apache-webserver.shell
+# Version: 0.1.0
+
+# Update package lists
+sudo apt update -y;
+
+# Install Apache web server
+sudo apt install -y apache2;
+
+# Start and enable Apache
+sudo systemctl start apache2;
+sudo systemctl enable apache2;
+
+# Create a simple HTML page to verify the instance is running
+echo -e "<h1>Server $(hostname) is running behind ALB</h1>" \
+   | sudo tee /var/www/html/index.html;
+
+# Welcome to Ubuntu 20.04.6 LTS (GNU/Linux 5.15.0-1078-gcp x86_64)
+
+#  * Documentation:  https://help.ubuntu.com
+#  * Management:     https://landscape.canonical.com
+#  * Support:        https://ubuntu.com/pro
+
+#  System information as of Mon Apr  7 15:39:01 UTC 2025
+
+#   System load:  0.0               Processes:             106
+#   Usage of /:   22.6% of 9.51GB   Users logged in:       0
+#   Memory usage: 24%               IPv4 address for ens4: 10.100.0.2
+#   Swap usage:   0%
+
+# Expanded Security Maintenance for Applications is not enabled.
+
+# 21 updates can be applied immediately.
+# 19 of these updates are standard security updates.
+# To see these additional updates run: apt list --upgradable
+
+# Enable ESM Apps to receive additional future security updates.
+# See https://ubuntu.com/esm or run: sudo pro status
+
+# The programs included with the Ubuntu system are free software;
+# the exact distribution terms for each program are described in the
+# individual files in /usr/share/doc/*/copyright.
+
+# Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+# applicable law.
+
+# devops_workflows@dev--web-server-840m:~$ curl --head localhost ;
+# HTTP/1.1 200 OK
+# Date: Mon, 07 Apr 2025 15:52:27 GMT
+# Server: Apache/2.4.41 (Ubuntu)
+# Last-Modified: Mon, 07 Apr 2025 15:31:19 GMT
+# ETag: "3b-63231ed7cb253"
+# Accept-Ranges: bytes
+# Content-Length: 59
+# Content-Type: text/html 
