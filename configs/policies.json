@@ -1,0 +1,76 @@
+{
+    "autoscaling": {
+        "profiles": {
+            "basic": {
+                "min": 1,
+                "max": 2,
+                "threshold": 0.6,
+                "cooldown": 60
+            },
+            "medium": {
+                "min": 2,
+                "max": 4,
+                "threshold": 0.65,
+                "cooldown": 90
+            },
+            "advanced": {
+                "min": 3,
+                "max": 6,
+                "threshold": 0.7,
+                "cooldown": 120
+            }
+        },
+        "logging": {
+            "log_file": "./logs/autoscaling.log",
+            "log_format": "%(asctime)s - %(levelname)s - %(message)s"
+        }
+    },
+    "storage": {
+        "bucket": {
+            "name": "terraform-prototype",
+            "prefix": "terraform/state",
+            "rbac": true,
+            "lifecycle": {
+                "rules": [
+                    {
+                        "action": {
+                            "type": "Delete"
+                        },
+                        "condition": {
+                            "age": 90,
+                            "matchesStorageClass": [
+                                "STANDARD"
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "stressload": {
+        "levels": {
+            "low": {
+                "duration": 60,
+                "threads": 250,
+                "interval": 0.04,
+                "requests": 10000
+            },
+            "medium": {
+                "duration": 60,
+                "threads": 500,
+                "interval": 0.02,
+                "requests": 30000
+            },
+            "high": {
+                "duration": 60,
+                "threads": 1000,
+                "interval": 0.01,
+                "requests": 1000000
+            }
+        },
+        "logging": {
+            "log_file": "./logs/stressload.log",
+            "log_format": "%(asctime)s - %(levelname)s - %(message)s"
+        }
+    }
+}

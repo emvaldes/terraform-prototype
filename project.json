@@ -1,0 +1,68 @@
+{
+    "defaults": {
+        "provider": "gcp",
+        "target": "dev"
+    },
+    "configs": {
+        "providers": {
+            "path": "./configs/providers",
+            "sets": {
+                "aws": "aws.json",
+                "azure": "azure.json",
+                "gcp": "gcp.json"
+            }
+        },
+        "targets": {
+            "path": "./configs/targets",
+            "sets": {
+                "dev": "dev.json",
+                "prod": "prod.json",
+                "staging": "staging.json"
+            }
+        }
+    },
+    "scripts": {
+        "configure": {
+            "apache_webserver": {
+                "path": "./scripts/configure",
+                "script": "apache-webserver.shell"
+            }
+        },
+        "manage": {
+            "configure_backend": {
+                "path": "./scripts/manage",
+                "script": "configure-backend.shell"
+            },
+            "configure_profiles": {
+                "path": "./scripts/manage",
+                "script": "configure-profiles.shell"
+            },
+            "configure_terraform": {
+                "path": "./scripts/manage",
+                "script": "configure-terraform.shell"
+            },
+            "configure_workspaces": {
+                "path": "./scripts/manage",
+                "script": "configure-workspaces.shell"
+            },
+            "inspect_autoscaling": {
+                "path": "./scripts/manage",
+                "script": "inspect-autoscaling.shell"
+            },
+            "inspect_services": {
+                "path": "./scripts/manage",
+                "script": "inspect-services.shell"
+            },
+            "package_functions": {
+                "path": "./scripts/manage",
+                "script": "package-functions.shell"
+            }
+        },
+        "stressload": {
+            "webservers": {
+                "path": "./scripts/stressload",
+                "script": "stressload-webservers.zip"
+            }
+        }
+    }
+}

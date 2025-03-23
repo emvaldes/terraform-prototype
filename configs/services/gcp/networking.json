@@ -1,0 +1,27 @@
+{
+    "vpc_network_name": "webapp-vpc",
+    "subnet_name": "webapp-subnet",
+    "subnet_cidr": "10.100.0.0/24",
+    "psa_range_name": "cloudsql-psa-range",
+    "psa_range_prefix_length": 16,
+    "nat": {
+        "router_name": "webapp-router",
+        "config_name": "webapp-nat-config",
+        "nat_logging_filter": "ERRORS_ONLY",
+        "enable_nat_logging": true,
+        "timeouts": {
+            "tcp_established_sec": 1200,
+            "tcp_transitory_sec": 30,
+            "udp_idle_sec": 30,
+            "icmp_idle_sec": 30
+        }
+    },
+    "management": {
+        "enable": false,
+        "vpc_name": "mgmt-vpc",
+        "subnet_name": "mgmt-subnet",
+        "subnet_cidr": "10.90.0.0/24",
+        "private_ip_google_access": true
+    },
+    "tags": []
+}

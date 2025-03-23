@@ -1,0 +1,26 @@
+{
+    "provider": "gcp",
+    "project_id": "",
+    "credentials": "",
+    "regions": {
+        "west": "us-west2",
+        "central": "us-central2",
+        "east": "us-east2"
+    },
+    "types": {
+        "micro": "e2-micro",
+        "medium": "e2-medium",
+        "standard": "n1-standard-1"
+    },
+    "services": [
+        "cloud_function",
+        "compute_resources",
+        "firewall_rules",
+        "health_check",
+        "http_forwarding",
+        "load_balancer",
+        "networking",
+        "web_autoscaling",
+        "web_backend"
+    ]
+}

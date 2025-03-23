@@ -1,0 +1,38 @@
+$ gcloud compute health-checks list --format=json ;
+
+[
+  {
+    "checkIntervalSec": 5,
+    "creationTimestamp": "2025-03-24T12:15:32.583-07:00",
+    "healthyThreshold": 2,
+    "httpHealthCheck": {
+      "port": 80,
+      "proxyHeader": "NONE",
+      "requestPath": "/"
+    },
+    "id": "9876543210123456789",
+    "kind": "compute#healthCheck",
+    "name": "http-health-check",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/http-health-check",
+    "timeoutSec": 5,
+    "type": "HTTP",
+    "unhealthyThreshold": 2
+  },
+  {
+    "checkIntervalSec": 5,
+    "creationTimestamp": "2025-03-24T12:15:32.594-07:00",
+    "healthyThreshold": 2,
+    "httpHealthCheck": {
+      "port": 80,
+      "proxyHeader": "NONE",
+      "requestPath": "/"
+    },
+    "id": "1234567890987654321",
+    "kind": "compute#healthCheck",
+    "name": "http-health-check-us-west2",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/http-health-check-us-west2",
+    "timeoutSec": 5,
+    "type": "HTTP",
+    "unhealthyThreshold": 2
+  }
+]

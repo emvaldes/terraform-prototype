@@ -1,0 +1,334 @@
+#!/usr/bin/env bash
+
+## File: ./scripts/manage/configure-profiles.shell
+# __version__ = "0.1.0"
+
+# Description:
+# This script manages Google Cloud IAM Service Accounts and associated credentials
+# based on configuration defined in `profiles.json`. It supports creating and deleting
+# service accounts in a structured, repeatable, and JSON-driven manner.
+
+# Features:
+# - Creates service accounts with display names and downloadable credentials
+# - Deletes service accounts and associated local credentials
+# - Validates account existence and avoids overwrites unless confirmed
+# - Automatically derives account names and paths using GCP project context
+# - Uses consistent output formatting and supports dry-run/debug/verbose options
+
+# Expected Behavior:
+# - Script must be run with GCP credentials already activated (via user or service account)
+# - Configuration is read from `./configs/profiles.json`
+# - Credentials are saved under the gcloud config directory in `accounts/`
+# - Will not proceed if required files or dependencies are missing
+
+# Dependencies:
+# - `gcloud`: CLI for Google Cloud interaction
+# - `jq`: JSON parsing and extraction
+
+# Usage:
+# To run the script with various actions:
+# > ./scripts/manage/configure-profiles.shell \
+#     --create \
+#     --delete \
+#     --dry-run \
+#     --verbose \
+#     --debug
+
+# Additional flags:
+#   --dry-run   : Perform a dry run without executing destructive actions
+#   --verbose   : Enable step-by-step command logging
+#   --debug     : Enable shell tracing (`set -x`) for full execution insight
+#   --help      : Print help and usage information
+
+# Examples:
+#   ./scripts/manage/configure-profiles.shell --create
+#   ./scripts/manage/configure-profiles.shell --delete
+#   ./scripts/manage/configure-profiles.shell --help
+
+set -eou pipefail ;
+# set -x ;
+
+#------------------------------------------------------------------------------#
+
+function create_accounts () {
+    ## Creating Service Accounts:
+    for credential in "${credentials[@]}"; do
+      # Extract the credential's details for each account
+      local account_data=$(
+        jq -r --arg credential "${credential}" '.credentials[$credential]' "${profiles_file}"
+      );
+      # Extract each field properly from account_data
+      local account_name=$(
+        jq -r '.name' <<< "$account_data"
+      );
+      local description=$(
+        jq -r '.description' <<< "$account_data"
+      );
+      local filename=$(
+        jq -r '.filename' <<< "$account_data"
+      );
+      # Construct the account email and key path
+      local service_account="${account_name}@${project_id}.iam.gserviceaccount.com";
+      local key_path="${target_path}/${filename}";
+      #------------------------------------------------------------------------#
+      echo -e "\nAccount:     ${service_account}";
+      echo -e "Description: ${description}";
+      echo -e "Credentials: $( sed -e "s|${HOME}|~|g" <<< ${key_path} )";
+      #------------------------------------------------------------------------#
+      # Create the service account if it doesn't exist
+      local overwrite=false;
+      if ! validate_account "${service_account}" &>/dev/null; then
+        echo -e;
+
+        # gcloud iam service-accounts create "${account_name}" --display-name="${description}";
+        # result=${?}; echo -e "Created Account (result): ${result}";
+        create_status=0;
+        if ! gcloud iam service-accounts create "${account_name}" --display-name="${description}" 2>/dev/null; then
+          create_status=$?;
+          # echo -e "Warning: Service Account creation failed (code ${create_status}) — possibly already exists.";
+          describe_account "${service_account}";
+          continue;
+        fi;
+
+        # if [[ ${?} -eq 0 ]]; then
+        #         # Wait until the service account is successfully created
+        #         while true; do
+        #           validate_account "${service_account}" &>/dev/null;
+        #           if [[ $? -eq 0 ]]; then
+        #             overwrite=true;
+        #             break;
+        #           fi;
+        #           sleep 5;
+        #         done;
+        #   else  echo -e "\nWarning: Unable to create service account!\n";
+        #         exit 1;
+        # fi;
+
+        # Wait until the service account is fully functional
+        for delay in 2 3 5 8 13; do
+          if validate_account "${service_account}"; then
+            overwrite=true;
+            break;
+          fi;
+          sleep "${delay}";
+        done;
+        if [[ "${overwrite}" != true ]]; then
+          echo >&2 "Error: Service account '${service_account}' was created but did not become ready in time.";
+          exit 1;
+        fi;
+      fi;
+      #------------------------------------------------------------------------#
+      describe_account "${service_account}";
+      echo -e;
+      # result=${?}; echo -e "Result: ${result}";
+      if [[ ${?} -eq 0 ]]; then
+              if delete_credentials "${key_path}"; then overwrite=true; fi;
+              if [[ ${overwrite} == true ]]; then
+                gcloud iam service-accounts keys create "${key_path}" --iam-account="${service_account}";
+                # result=${?}; echo -e "Result: ${result}";
+                [[ ${?} -eq 0 ]] && ls -l "${key_path}";
+              fi;
+        else  echo -e "\nWarning: Unable to create credentials!\n";
+              exit 1;
+      fi;
+      #------------------------------------------------------------------------#
+    done;
+    return 0;
+  }; alias create-accounts='create_accounts';
+
+#------------------------------------------------------------------------------#
+
+function delete_accounts () {
+    ## Deleting Service Accounts:
+    for credential in "${credentials[@]}"; do
+      local account_data=$(
+        jq -r --arg credential "${credential}" '.credentials[$credential]' "${profiles_file}"
+      );
+      # Extract each field properly from account_data
+      local account_name=$(
+        jq -r '.name' <<< "$account_data"
+      );
+      local filename=$(
+        jq -r '.filename' <<< "$account_data"
+      );
+      # Construct the account email and key path
+      local service_account="${account_name}@${project_id}.iam.gserviceaccount.com";
+      local key_path="${target_path}/${filename}";
+      #------------------------------------------------------------------------#
+      echo -e "\nAccount:     ${service_account}";
+      echo -e "Credentials: $( sed -e "s|${HOME}|~|g" <<< ${key_path} )";
+      #------------------------------------------------------------------------#
+      # Delete the service account if it exists
+      if validate_account "${service_account}" &>/dev/null; then
+              # echo -e "Deleting service account: ${service_account}" ;
+              gcloud iam service-accounts delete "${service_account}" --quiet ;
+              # result=${?}; echo -e "Result: ${result}";
+              if [[ ${?} -eq 0 ]]; then
+                      # Delete the associated credentials file
+                      delete_credentials "${key_path}" 'force';
+                else  echo -e "\nWarning: Unable to delete service account!\n";
+                      exit 1;
+              fi;
+        else  echo -e "Service account: ${service_account} not found.";
+              echo -e "\nSkipping deletion.";
+      fi;
+    done;
+    return 0;
+  }; alias delete-accounts='delete_accounts';
+
+#------------------------------------------------------------------------------#
+
+function delete_credentials () {
+    local credential="${1}"; [[ -z ${credential:-} ]] && return 1;
+    [[ ${2:-} == 'force' ]] && local forced_removal=true;
+    local skipped_message="\nSkipped deleting credential: ${credential}";
+    if [[ -f "${credential}" ]]; then
+      ## Conditioning forced-removal:
+      if [[ ${forced_removal} == true ]]; then
+              confirmation='y';
+        else  # Check if the key already exists and prompt user
+              echo -e "\nDelete credential file?: $( echo -e "${credential}" | sed -e "s|${HOME}|~|g" )";
+              read -t 10 -p "Type 'yes|y' to confirm (auto-overwrite in 10s): " confirmation;
+      fi;
+      if [[ ${confirmation} =~ ^(Y|y)$ ]]; then
+              echo -e "Deleting Credential: ${credential}";
+              rm -f "${credential}";
+              return 0;
+        else  echo -e "${skipped_message}";
+              return 1;
+      fi;
+    fi;
+    # return 0;
+  }; alias delete-credentials='delete_credentials';
+
+#------------------------------------------------------------------------------#
+
+function describe_account () {
+    local target_account="${1}"; [[ -z ${target_account:-} ]] && return 1;
+    gcloud iam service-accounts describe "${target_account}" --format=json 2>/dev/null;
+    local result=${?}; # echo -e "Result: ${result}";
+    if [[ ${result} -gt 0 ]]; then describe_account "${target_account}"; fi;
+    return 0;
+  }; alias describe-account='describe_account';
+
+#------------------------------------------------------------------------------#
+
+# function validate_account () {
+#     local target_account="${1}"; [[ -z ${target_account:-} ]] && return 2;
+#     if gcloud iam service-accounts list \
+#               --filter="email=${target_account}" \
+#        | grep -q "${service_account}"; then
+#             return 0;  # Service account exists.
+#       else  return 1;  # Service account does not exist.
+#     fi;
+#     # return 0;
+#   }; alias validate-account='validate_account';
+
+function validate_account () {
+  local target_account="${1}"; [[ -z ${target_account:-} ]] && return 2;
+  # Step 1: Check if account appears in list
+  if ! gcloud iam service-accounts list \
+              --filter="email=${target_account}" \
+              --format="value(email)" | grep -q "^${target_account}$"; then
+    return 1;  # Not listed yet
+  fi
+  # Step 2: Dry-run a key creation to verify propagation
+  local test_key=$(mktemp);
+  if gcloud iam service-accounts keys create "${test_key}" \
+        --iam-account="${target_account}" \
+        --project="${project_id}" >/dev/null 2>&1; then
+        rm -f "${test_key}"
+        return 0  # Key creation worked: account is usable
+  else  rm -f "${test_key}"  # Don't leave files
+        return 3  # Listed, but not yet functional
+  fi
+}; alias validate-account='validate_account';
+
+#------------------------------------------------------------------------------#
+
+function display_help () {
+    local script_filename="$( basename ${script_name} )";
+    echo -e "
+    Usage: ${script_filename} [OPTIONS]
+
+    Options:
+    -c, --create            Create the service account and its associated credentials key (file) if they do not exist
+    -d, --delete            Delete the service account and its associated credentials key (file)
+
+    --help                  Show this help message and exit
+    --dry-run               Print actions without executing them
+    --verbose               Enable verbose output
+    --debug                 Enable debug mode with trace output
+
+    Examples:
+    ${script_filename} --create ;
+    ${script_filename} --delete ;
+    ";
+    return 0;
+  }; alias display-help='display_help';
+
+#------------------------------------------------------------------------------#
+
+function main () {
+    ## tracking_process ${FUNCNAME} "${@}";
+    oIFS="${IFS}";
+    for xitem in "${@}"; do
+      IFS='=' read -r key value <<< "$(
+        echo -e "${xitem}" | sed -e '1s|^\(-\)\{1,\}||'
+      )"; #echo -e "\nxitem: '${xitem}'\nkey: '${key}'\t->\tvalue: '${value}'";
+      [[ $key =~ ^(create|c)$ ]] && local action_create=true;
+      [[ $key =~ ^(delete|d)$ ]] && local action_delete=true;
+      #------------------------------------------------------------------------#
+      [[ $key == "help" ]] && local script_helper=true;
+      [[ $key == "dry-run" ]] && local dry_run=true;
+      [[ $key == "verbose" ]] && local verbose=true
+      [[ $key == "debug" ]] && local debug=true
+    done; IFS="${oIFS}";
+    #------------------------------------------------------------------------#--
+    if [[ ${script_helper:-} == true ]]; then
+      display_help;
+      exit 0;
+    fi;
+    #------------------------------------------------------------------------#--
+    [[ -z ${dry_run:-} ]] && local dry_run=false;
+    [[ -z ${debug:-} ]] && local debug=false;
+    [[ -z ${verbose:-} ]] && local verbose=false;
+    #------------------------------------------------------------------------#--
+    if [[ ${action_create:-} == true ]]; then
+            # echo -e "\nAction (Create): ${action_create}\n";
+            create_accounts;
+      else  local action_create=false;
+    fi;
+    #------------------------------------------------------------------------#--
+    if [[ ${action_delete:-} == true ]]; then
+            # echo -e "\nAction (Delete): ${action_delete}\n";
+            delete_accounts;
+      else  local action_delete=false;
+    fi;
+    #------------------------------------------------------------------------#--
+    return 0;
+  }; alias configure-profiles='main';
+
+# Define the path to the profiles file
+profiles_file="./configs/profiles.json";
+
+# Get the current project ID from gcloud config
+project_id="$(gcloud config get-value project)";
+
+# Get the global config directory from gcloud info
+config_dir="$( gcloud info --format=json | jq -r '.config.paths.global_config_dir' )";
+
+# Define the target path for storing credentials
+target_path="${config_dir}/accounts";
+
+# Create the target path if it doesn't exist
+mkdir -p "${target_path}";
+
+# Extract the accounts from the profiles file using jq, and store them in an array
+credentials=($( jq -r '.credentials | keys[]' "${profiles_file}" ));
+
+export script_name="${0}";
+if [[ ${#@} -eq 0 ]]; then
+        main --help;
+  else  main "${@}"; echo -e "\nDone.\n";
+fi;

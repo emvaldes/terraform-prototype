@@ -1,0 +1,12 @@
+# File: scripts/stressload-webservers/requirements.txt
+# Version: 0.1.0
+
+# Used for sending HTTP requests during the stress test.
+requests==2.31.0
+
+# Handles authentication when using Google Cloud APIs via the Python client libraries (like Compute Engine API).
+# Required for service account credentials and making authenticated API calls.
+google-auth==2.20.0
+
+# Provides access to Google Cloud APIs, such as Compute Engine for querying instance groups (replacement for gcloud compute instance-groups).
+google-api-python-client==2.100.0

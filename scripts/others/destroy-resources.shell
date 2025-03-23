@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# File: ./scripts/others/destroy-all-resources.shell
+# Version: 0.2.0
+
+set -euo pipefail
+
+# Validate GCP_PROJECT_ID env
+PROJECT_ID="${GCP_PROJECT_ID:-}"
+if [[ -z "${PROJECT_ID}" ]]; then
+  echo >&2 "GCP_PROJECT_ID is not set in the environment."
+  exit 1
+fi
+
+# Resolve region from configs
+TARGET_FILE="./configs/targets/dev.json"
+PROVIDER_FILE="./configs/providers/gcp.json"
+
+if [[ ! -f "${TARGET_FILE}" || ! -f "${PROVIDER_FILE}" ]]; then
+  echo >&2 "One or both config files are missing: ${TARGET_FILE}, ${PROVIDER_FILE}"
+  exit 1
+fi
+
+region_key="$(jq -r '.region' "${TARGET_FILE}")"
+REGION="$(jq -r --arg key "${region_key}" '.regions[$key]' "${PROVIDER_FILE}")"
+
+if [[ -z "${REGION}" || "${REGION}" == "null" ]]; then
+  echo >&2 "Failed to resolve region from ${TARGET_FILE} → ${PROVIDER_FILE}"
+  exit 1
+fi
+
+echo "Starting GCP resource cleanup for project: ${PROJECT_ID}, region: ${REGION}"
+
+# Utility
+delete_if_exists() {
+  local list_cmd="$1" ; shift
+  local delete_cmd="$1" ; shift
+
+  resources=()
+  while IFS= read -r name; do resources+=("$name"); done < <(eval "$list_cmd")
+  if [[ ${#resources[@]} -gt 0 ]]; then
+    for res in "${resources[@]}"; do
+      eval "$delete_cmd \"$res\""
+    done
+  fi
+}
+
+# Instances
+echo "Deleting instances..."
+delete_if_exists \
+  "gcloud compute instances list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute instances delete --quiet --zone=${REGION}-a --project=${PROJECT_ID}"
+
+# Instance groups
+echo "Deleting instance groups..."
+delete_if_exists \
+  "gcloud compute instance-groups managed list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute instance-groups managed delete --quiet --region=${REGION} --project=${PROJECT_ID}"
+
+# Autoscalers
+echo "Deleting autoscalers..."
+delete_if_exists \
+  "gcloud compute region-autoscalers list --region=${REGION} --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute region-autoscalers delete --quiet --region=${REGION} --project=${PROJECT_ID}"
+
+# Templates
+echo "Deleting instance templates..."
+delete_if_exists \
+  "gcloud compute instance-templates list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute instance-templates delete --quiet --project=${PROJECT_ID}"
+
+# Health checks
+echo "Deleting health checks..."
+delete_if_exists \
+  "gcloud compute health-checks list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute health-checks delete --quiet --project=${PROJECT_ID}"
+
+# Backend services
+echo "Deleting backend services..."
+delete_if_exists \
+  "gcloud compute backend-services list --global --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute backend-services delete --global --quiet --project=${PROJECT_ID}"
+
+# URL maps
+echo "Deleting URL maps..."
+delete_if_exists \
+  "gcloud compute url-maps list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute url-maps delete --quiet --project=${PROJECT_ID}"
+
+# HTTP proxies
+echo "Deleting HTTP proxies..."
+delete_if_exists \
+  "gcloud compute target-http-proxies list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute target-http-proxies delete --quiet --project=${PROJECT_ID}"
+
+# Forwarding rules
+echo "Deleting forwarding rules..."
+delete_if_exists \
+  "gcloud compute forwarding-rules list --global --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute forwarding-rules delete --global --quiet --project=${PROJECT_ID}"
+
+# Firewall rules
+echo "Deleting firewall rules..."
+delete_if_exists \
+  "gcloud compute firewall-rules list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute firewall-rules delete --quiet --project=${PROJECT_ID}"
+
+# Subnets
+echo "Deleting subnets..."
+delete_if_exists \
+  "gcloud compute networks subnets list --regions=${REGION} --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute networks subnets delete --quiet --region=${REGION} --project=${PROJECT_ID}"
+
+# PSA range (must delete before VPC)
+echo "Deleting PSA ranges..."
+psa_name=$(
+  gcloud compute addresses list \
+    --project="${PROJECT_ID}" \
+    --global \
+    --filter="purpose=VPC_PEERING" \
+    --format="value(name)" | head -n1
+)
+if [[ -n "${psa_name}" ]]; then
+  echo "🔸 Deleting PSA address: ${psa_name}"
+  gcloud compute addresses delete "${psa_name}" --global --project="${PROJECT_ID}" --quiet
+fi
+
+# VPC Peering
+echo "Deleting VPC peering..."
+vpc_name=$(gcloud compute networks list --project="${PROJECT_ID}" --format="value(name)" | head -n1)
+if [[ -n "${vpc_name}" ]]; then
+  gcloud services vpc-peerings delete \
+    --network="${vpc_name}" \
+    --project="${PROJECT_ID}" \
+    --quiet || true
+fi
+
+# NAT Config
+echo "Deleting NAT configs..."
+delete_if_exists \
+  "gcloud compute routers nats list --router-region=${REGION} --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute routers nats delete --quiet --router=dev--webapp-router --region=${REGION} --project=${PROJECT_ID}"
+
+# Routers
+echo "Deleting routers..."
+delete_if_exists \
+  "gcloud compute routers list --region=${REGION} --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute routers delete --quiet --region=${REGION} --project=${PROJECT_ID}"
+
+# VPC networks (last)
+echo "Deleting VPC networks..."
+delete_if_exists \
+  "gcloud compute networks list --project=${PROJECT_ID} --format='value(name)'" \
+  "gcloud compute networks delete --quiet --project=${PROJECT_ID}"
+
+# Buckets
+echo "Deleting GCS buckets..."
+buckets=$(gsutil ls -p "${PROJECT_ID}" 2>/dev/null || true)
+if [[ -n "${buckets:-}" ]]; then
+  for bucket in ${buckets}; do
+    gsutil -m rm -r "${bucket}" || true
+  done
+fi
+
+echo "Cleanup complete."

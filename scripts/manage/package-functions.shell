@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/package-functions.shell
+# Version: 0.1.0
+
+set -eou pipefail ;
+# set -x ;
+
+# -----------------------------------------------------------------------------#
+
+function aggregate_services () {
+    if [[ -n "${1:-}" ]]; then
+            local provider="${1}" ;
+            local provider_config="./configs/providers/${provider}.json" ;
+            local services_path="./configs/services/${provider}" ;
+      else  # echo -e "\nWarning: Cloud Provider in invalid!\n";
+            exit 1 ;
+    fi ;
+    # Build merged services JSON
+    local services=$(
+      jq -r '.services[]' "${provider_config}" \
+      | while read -r service; do
+          service_config="${services_path}/${service}.json" ;
+          if [[ -f "${service_config}" ]]; then
+                  echo -e "{ \"${service}\": $( jq -c . "${service_config}" ) }" ;
+            # else  echo -e "\nWarning: Invalid service file '${service}'" 2>/dev/null ;
+          fi ;
+        done \
+      | jq -s 'add | { services: . }' ;
+    ) ;
+    jq -r . <<< "${services}" ;
+    return 0;
+}; alias aggregate-services='aggregate_services';
+
+function extract_configurations() {
+
+    echo -e "\nExtracting Cloud Function configurations (terraform state) ...\n" ;
+
+    # Extract required values from Terraform output
+    project_id=$( jq -r '.project_id.value' <<< "${terraform_output}" ) ;
+    echo -e "Project ID: ${project_id}\n" ;
+
+    autoscaling_profile="$( jq -r \
+      '.environment_config.value.policies.autoscaling' \
+      <<< "${terraform_output}"
+    )" ;
+    echo -e "Auto-Scaling Profile: ${autoscaling_profile}" ;
+
+    autoscaling_configs="$( jq -r --arg key "${autoscaling_profile}" \
+      '.autoscaling.profiles[$key]' \
+      <<< "${policies_object}"
+    )" ;
+    echo -e "Auto-Scaling Config: ${autoscaling_configs}" ;
+
+    stressload_level="$( jq -r \
+      '.environment_config.value.policies.stressload' \
+      <<< "${terraform_output}"
+    )" ;
+    echo -e "\nStress-Load Level: ${stressload_level}" ;
+
+    stressload_configs="$( jq -r --arg key "${stressload_level}" \
+      '.stressload.levels[$key]' \
+      <<< "${policies_object}"
+    )" ;
+    echo -e "Stressload Config: ${stressload_configs}" ;
+
+    # cloud_function_configs="$( jq -r \
+    #   '.gcp_project_config.value.services.cloud_function' \
+    #   <<< "${terraform_output}"
+    # )" ;
+    cloud_function_configs="$( jq -r \
+      '.services.cloud_function' \
+      <<< "${provider_services}"
+    )" ;
+    if [[ -z ${cloud_function_configs:-} ]]; then
+      echo -e "\nWarning: Invalid Cloud Function configuration!" ;
+      exit 1 ;
+    fi ;
+
+    function_name="$( jq -r '.name' <<< "${cloud_function_configs}" )" ;
+    echo -e "\nFunction Name:   ${function_name}" ;
+
+    function_region="$( jq -r \
+      '.gcp_project_config.value.regions[.environment_config.value.region]' \
+      <<< "${terraform_output}"
+    )" ;
+    echo -e "Function Region: ${function_region}" ;
+
+    function_bucket="$( jq -r \
+      '.gcp_project_config.value.services.cloud_function.bucket_name' \
+      <<< "${provider_services}"
+    )" ;
+    echo -e "Function Bucket: ${function_bucket}" ;
+
+    function_service_account="$( jq -r \
+      '.cloud_function_service_account_email.value' \
+      <<< "${terraform_output}"
+    )" ;
+    echo -e "Function Service Account: ${function_service_account}" ;
+
+    # Validate required Terraform outputs
+    required_outputs=(
+      load_balancer_ip
+      project_id
+      region
+      compute_web_servers_group
+      compute_web_autoscaler_name
+      environment_config
+    )
+
+    for key in "${required_outputs[@]}"; do
+      if ! echo "${terraform_output}" | jq -e "select(.${key} != null and .${key}.value != null)" >/dev/null; then
+        echo -e "Error: Required Terraform Output '${key}' not found." >&2 ;
+        exit 1 ;
+      fi ;
+    done ;
+
+    # Build Cloud Function Configuration with all required keys for the Python script
+    echo -e "${terraform_output}" | jq \
+        --arg project_id "${project_id}" \
+        --argjson stressload "${stressload_configs}" \
+        --argjson autoscaling "${autoscaling_configs}" \
+        --arg log_level "${stressload_level}" \
+      '{
+        target_url:               "http://\(.load_balancer_ip.value)",
+        project_id:               ($project_id),
+        region:                   .region.value,
+        mig_name:                 (.compute_web_servers_group.value | split("/") | last),
+        autoscaler_name:          .compute_web_autoscaler_name.value,
+
+        log_level:                $log_level,
+        stress_duration_seconds:  ($stressload.duration),
+        stress_concurrency:       ($stressload.threads),
+        request_sleep_interval:   ($stressload.interval),
+
+        autoscaler_min_replicas:  ($autoscaling.min),
+        autoscaler_max_replicas:  ($autoscaling.max)
+      }' > "${config_filepath}" ;
+
+    if test -f "${config_filepath}"; then
+            echo -e "\nCreated Config-File:  ${config_filepath}" ;
+            cat "${config_filepath}" ; echo -e ;
+            package_files+=( "${config_filename}" ) ;
+      else  echo -e "Error: Failed to create config file: ${config_filepath}" >&2 ;
+            echo '{}' > "${config_filepath}" ;
+            echo -e "Flushed config: ${config_filepath}" ;
+            exit 1 ;
+    fi ;
+
+    return 0 ;
+}; alias extract-configurations=extract_configurations ;
+
+# ------------------------------------------------------------------------------
+
+function deploy_cloud_function() {
+
+    if [[ -z "${function_bucket}" || "${function_bucket}" == "null" ]]; then
+      echo -e "Error: Cloud Function bucket not set. Skipping deployment." >&2 ;
+      return 1 ;
+    fi ;
+
+    if ! gcloud storage buckets describe "gs://${function_bucket}" --project="${project_id}" >/dev/null 2>&1; then
+      echo -e "Error: Cloud Function bucket '${function_bucket}' not found. Skipping deployment." >&2 ;
+      return 1 ;
+    fi ;
+
+    echo -e "\nDeploying Cloud Function...\n" ;
+
+    archive_filename=$( basename "${target_package}" ) ;
+    echo -e "\nArchive Filename: ${archive_filename}" ;
+
+    # Upload the zip manually to the bucket
+    archive_bucket="${function_bucket}/${archive_filename}" ;
+    echo -e "Archive Bucket:   ${archive_bucket}\n" ;
+
+    cd ../ ; # pwd ; echo -e ;
+    gsutil cp "${target_package}" "gs://${archive_bucket}" ;
+
+    # Deploy using Terraform-driven values
+    echo gcloud functions deploy "${function_name}" \
+          --project="${project_id}" \
+          --region="${function_region}" \
+          --source="gs://${archive_bucket}" \
+          --runtime="python311" \
+          --entry-point="main" \
+          --trigger-http \
+          --service-account="${function_service_account}" \
+    ;
+
+    return 0 ;
+}; alias deploy-cloud-function=deploy_cloud_function ;
+
+# ------------------------------------------------------------------------------
+
+# Target Provider (input):
+target_provider="${1:-}" ;
+if [[ -z "${target_provider:-}" ]]; then
+        project_filepath="./project.json";
+        if [[ ! -f "${project_filepath}" ]]; then
+          echo "Project Configuration not found: ${project_filepath}";
+          exit 1;
+        fi;
+        target_provider="$(
+          jq -r '.defaults.provider' "${project_filepath}"
+        )";
+        echo -e "\nWarning: Cloud Provider in invalid!";
+        echo -e "Fetching default provider (${target_provider}) ...";
+fi ;
+
+echo -e "Aggregating Provider (${target_provider}) Services\n" ;
+export provider_services="$(
+  aggregate_services "${target_provider}"
+)" ;
+
+# Load full policies config JSON
+policies_filename="policies.json" ;
+policies_object="$( jq '.' ./configs/${policies_filename} )" ;
+jq . <<<  "${policies_object}" || {
+  echo -e "Error: Failed to load ${policies_filename}" >&2 ;
+  exit 1 ;
+}
+
+source_package_path="scripts/stressload/webservers" ;
+source_package_name="stressload-webservers.zip" ;
+# echo -e "Stress-Load WebServers: ${source_package_name}" ;
+
+scripts_packages="packages" ;
+target_package="${scripts_packages}/${source_package_name}" ;
+echo -e "\nStress-Load Package: ${target_package}" ;
+
+config_filename="config.json" ;
+config_filepath="${source_package_path}/${config_filename}" ;
+echo -e "Stress-Load Config:  ${config_filepath}" ;
+
+if [[ -f ${config_filepath} ]]; then
+  echo -e "\n${config_filepath} file already exists" ;
+  ls -l ${config_filepath} ;
+  rm ${config_filepath} 2>/dev/null ;
+fi ;
+
+declare -a package_files=(
+  main.py
+  requirements.txt
+) ;
+
+# if unset TF_LOG terraform init -backend=false -input=false -lock=false -reconfigure >/dev/null 2>&1 ; then
+#   if terraform_output=$( unset TF_LOG && TF_IN_AUTOMATION=1 terraform output -json 2>/dev/null ); then
+#     echo "Terraform output parsed successfully." ;
+#   fi ;
+# fi ;
+
+outputs_filename="outputs.json" ;
+if [[ -f ${outputs_filename} ]]; then
+  echo -e "\n${outputs_filename} file already exists" ;
+  ls -l ${outputs_filename} ;
+  rm ${outputs_filename} 2>/dev/null ;
+fi ;
+
+outputs_enabled=false ;
+output_message="Terraform Outputs (${outputs_filename})" ;
+
+if [[ ! -f ${outputs_filename} ]]; then
+  unset terraform_output ;
+  outputs_errors="outputs.error" ;
+  if  terraform_output=$(
+      unset TF_LOG && TF_IN_AUTOMATION=1 \
+      terraform output -json 2>${outputs_errors} \
+      | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+      | jq -c . ;
+    ); then
+          echo -e "\nExported ${output_message}\n" ;
+          # if [[ "${terraform_output:-}" == '{}' || "${terraform_output:-}" -eq 0 ]]; then
+          if jq -e 'keys == []' <<< "${terraform_output}" >/dev/null; then
+                  echo -e "\nWarning: No Terraform outputs found. Skipping config generation." >&2 ;
+            else  echo -e "${terraform_output}" | jq '.' | tee "./${outputs_filename}" ;
+                  echo -e "\nTerraform Outputs extracted to: ${outputs_filename}" ;
+                  ls -l ${outputs_filename} ;
+                  outputs_enabled=true ;
+          fi ;
+    else  echo "Unable to export ${output_message}. Terraform is not initialized or backend error." ;
+  fi ;
+fi ;
+
+# if jq -e 'to_entries | length == 0' <<< "${terraform_output}" >/dev/null; then
+# if jq -e 'keys == []' <<< "${terraform_output}" >/dev/null; then
+
+if [[ "${outputs_enabled}" == true ]]; then
+        extract_configurations ;
+  else  echo -e "         Skipping ${config_filepath} creation! Please run 'terraform apply' first.\n" ;
+fi ;
+
+for package_file in "${package_files[@]}"; do
+    if ! test -f "${source_package_path}/${package_file}"; then
+            echo -e "Error: File not found: ${source_package_path}/${package_file}" >&2 ;
+            exit 1 ;
+      else  echo -e "Including: ${source_package_path}/${package_file}" ;
+    fi ;
+done ;
+
+# Create build directory if needed
+mkdir -p "${scripts_packages}" ;
+
+# Clean up previous zip
+[[ -f "${target_package}" ]] && rm -f "${target_package}" 2>/dev/null ;
+
+## Build the zip archive
+# cd "${source_package_path}" ;
+
+# echo -e "\nPackaging: [${source_package_path}] ${source_package_name}" ;
+# zip "../../../${scripts_packages}/${source_package_name}" "${package_files[@]}" ;
+
+# echo -e "\nCreated archive: ${target_package}" ;
+
+# cd "../../../${scripts_packages}" ; echo -e ;
+# ls -l ${source_package_name} ;
+
+# unzip -l "${source_package_name}" ;
+
+echo -e "\nPackaging: [${source_package_path}] ${source_package_name}" ;
+zip -j "${target_package}" "${source_package_path}/"* ;
+
+echo -e "\nCreated archive: ${target_package}" ;
+ls -l "${target_package}" ; echo -e ;
+unzip -l "${target_package}" ;
+
+if [[ ${outputs_enabled} == true ]]; then
+
+  target_path=$(
+    unset TF_LOG && TF_IN_AUTOMATION=1 \
+    terraform output -raw cloud_function_upload_target 2>${outputs_errors} \
+    | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+    | awk -F'::debug::' '{print $1}'
+  ) ;
+  if [[ -z "${target_path:-}" ]]; then
+    echo "[ERROR] cloud_function_upload_target is empty" ;
+    exit 1 ;
+  fi ;
+
+  target_bucket=$(
+    unset TF_LOG && TF_IN_AUTOMATION=1 \
+    terraform output -raw cloud_function_bucket 2>${outputs_errors} \
+    | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+    | awk -F'::debug::' '{print $1}'
+  ) ;
+
+  echo -e ;
+  # echo "Target Path: $target_path"
+  unset TF_LOG && terraform apply -target="$target_path" -auto-approve >/dev/null 2>&1 ;
+  # unset TF_LOG && terraform apply -auto-approve ;
+
+  echo -en "Cloud-Function Bucket's objects: " ;
+  gsutil ls -l gs://${target_bucket} 2>/dev/null ;
+
+  # echo -e "\nCloud-Function Bucket's Size/Count:" ;
+  # gsutil du -s gs://${target_bucket} 2>/dev/null ;
+
+  echo -e "\nCloud-Function Bucket's Metadata:" ;
+  gsutil ls -Lb gs://${target_bucket} 2>/dev/null ;
+
+  # ## Warning: Uploading the archive does NOT deploy the function.
+  # ##          Terraform only uploads the file in that -target command.
+
+  # ## To deploy the function: Once the archive is uploaded, you need to trigger:
+  # ## unset TF_LOG && terraform apply -target=module.cloud_function[0].google_cloudfunctions2_function.cloud_function
+
+  # ## Process: Pick up the already-uploaded archive from the bucket
+  # ##          Deploy the Cloud Function using that source
+  # ##          Complete the deployment using your build_config and service_config
+
+fi ;
+
+rm ${outputs_errors} ;
+echo -e "\nDone!\n" ;
+
+# Expected change:
+#
+# Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+#   ~ update in-place
+#
+# Terraform will perform the following actions:
+#
+#   # module.cloud_function[0].google_storage_bucket_object.function_archive[0] will be updated in-place
+#   ~ resource "google_storage_bucket_object" "function_archive" {
+#       ~ crc32c              = "CrcChw==" -> (known after apply)
+#       ~ detect_md5hash      = "u1AmPgObkjtra/lnJr5LwQ==" -> "different hash"
+#       ~ generation          = 1744644396513603 -> (known after apply)
+#         id                  = "dev--cloud-function-bucket-dev--stressload-webservers.zip"
+#       ~ md5hash             = "u1AmPgObkjtra/lnJr5LwQ==" -> (known after apply)
+#         name                = "dev--stressload-webservers.zip"
+#         # (16 unchanged attributes hidden)
+#     }
+#
+# Plan: 0 to add, 1 to change, 0 to destroy.

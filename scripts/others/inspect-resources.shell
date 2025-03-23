@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/inspect-resources.shell
+# Version: 0.2.0
+
+set -eou pipefail ;
+# set -x ;
+
+# -----------------------------------------------------------------------------#
+# Stage 1: Extract deployed resource definitions from Terraform JSON output
+# -----------------------------------------------------------------------------#
+
+deployed_resources="/tmp/deployed-resources.json" ;
+parsed_resources="/tmp/parsed-resources.json" ;
+grouped_resources="/tmp/grouped-resources.json" ;
+commands_output="/tmp/targeted-resources.list" ;
+inspected_output="/tmp/inspected-resources.json" ;
+
+unset TF_LOG && TF_IN_AUTOMATION=1 terraform show -json \
+  | jq -r . > "${deployed_resources}" ;
+
+jq '
+  (
+    .values.root_module.resources // []
+    + (.values.root_module.child_modules // [] | map(.resources // []) | add)
+  )
+  | map(select(.mode == "managed"))
+  | map({
+      address: .address,
+      type: .type,
+      name: .name,
+      project: .values.project,
+      region: .values.region,
+      id: .values.id,
+      self_link: .values.self_link
+    })
+' "${deployed_resources}" > "${parsed_resources}" ;
+
+jq -s '
+  add
+  | group_by(.type)
+  | map({ (.[0].type): . })
+  | add
+' "${parsed_resources}" > "${grouped_resources}" ;
+
+# -----------------------------------------------------------------------------#
+# Stage 2: Generate gcloud inspection commands per resource type
+# -----------------------------------------------------------------------------#
+
+: > "${commands_output}" ;
+
+jq -r 'keys[]' "${grouped_resources}" | while read -r type ; do
+  jq -c --arg type "${type}" '.[$type][]' "${grouped_resources}" | while read -r item ; do
+    name=$(jq -r '.name' <<< "${item}") ;
+    project=$(jq -r '.project // empty' <<< "${item}") ;
+    region=$(jq -r '.region // empty' <<< "${item}") ;
+
+    case "${type}" in
+      google_compute_instance_template)
+        echo "gcloud compute instance-templates describe ${name} --project=${project}" ;;
+      google_compute_firewall)
+        echo "gcloud compute firewall-rules describe ${name} --project=${project}" ;;
+      google_compute_health_check)
+        echo "gcloud compute health-checks describe ${name} --project=${project}" ;;
+      google_compute_backend_service)
+        echo "gcloud compute backend-services describe ${name} --global --project=${project}" ;;
+      google_compute_region_instance_group_manager)
+        echo "gcloud compute region-instance-group-managers describe ${name} --region=${region} --project=${project}" ;;
+      google_compute_global_forwarding_rule)
+        echo "gcloud compute forwarding-rules describe ${name} --global --project=${project}" ;;
+      google_compute_target_http_proxy)
+        echo "gcloud compute target-http-proxies describe ${name} --project=${project}" ;;
+      google_compute_url_map)
+        echo "gcloud compute url-maps describe ${name} --project=${project}" ;;
+      google_service_account)
+        echo "gcloud iam service-accounts describe ${name}@${project}.iam.gserviceaccount.com --project=${project}" ;;
+      google_storage_bucket)
+        echo "gcloud storage buckets describe gs://${name} --project=${project}" ;;
+      google_storage_bucket_object)
+        echo "# Skipped storage object: ${name}" ;;
+      *)
+        echo "# Unsupported: ${type} (${name})" ;;
+    esac >> "${commands_output}" ;
+  done
+done
+
+echo "# Rendered gcloud commands written to: ${commands_output}" ;
+
+# -----------------------------------------------------------------------------#
+# Stage 3: Execute gcloud commands and collect inspection output as JSON array
+# -----------------------------------------------------------------------------#
+
+echo "[]" > "${inspected_output}" ;
+
+while read -r cmd ; do
+  [[ "$cmd" =~ ^# ]] && continue ;
+
+  IFS=' ' read -r -a parts <<< "$cmd" ;
+
+  type="${parts[2]}" ;
+  name="${parts[4]}" ;
+
+  project=$(echo "$cmd" | sed -n 's/.*--project=\([^ ]*\).*/\1/p') ;
+  region=$(echo "$cmd" | sed -n 's/.*--region=\([^ ]*\).*/\1/p') ;
+
+  if json=$(eval "${cmd} --format=json" 2>/dev/null || echo '') ; then
+    json="${json:-{\"error\": \"command failed or unavailable\"}}"
+  fi
+
+  jq --arg type "${type}" \
+     --arg name "${name}" \
+     --arg project "${project}" \
+     --arg region "${region}" \
+     --arg cmd "${cmd}" \
+     --argjson result "${json}" \
+     '. += [{
+       type: $type,
+       name: $name,
+       project: $project,
+       region: ($region | select(. != "")),
+       command: $cmd,
+       result: $result
+     }]' \
+     "${inspected_output}" > "${inspected_output}.tmp" && mv "${inspected_output}.tmp" "${inspected_output}" ;
+done < "${commands_output}" ;
+
+echo "# Inspection results written to: ${inspected_output}" ;

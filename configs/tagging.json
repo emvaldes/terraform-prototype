@@ -1,0 +1,64 @@
+{
+    "providers": {
+        "gcp": {
+            "cloud_function": {
+            },
+            "compute": {
+                "tags": [
+                    {
+                        "value": "ssh-access",
+                        "fixed": true
+                    },
+                    {
+                        "value": "http-server",
+                        "fixed": false
+                    }
+                ]
+            },
+            "firewall": {
+                "allow_ssh": {
+                    "tags": [
+                        {
+                            "value": "ssh-access",
+                            "fixed": true
+                        }
+                    ]
+                },
+                "allow_ssh_iap": {
+                    "tags": [
+                        {
+                            "value": "ssh-access",
+                            "fixed": true
+                        }
+                    ]
+                }
+            },
+            "load_balancer": {
+                "tags": [
+                    {
+                        "value": "load-balancer",
+                        "fixed": false
+                    }
+                ]
+            },
+            "accounts": {
+                "tags": [
+                    {
+                        "value": "service-accounts",
+                        "fixed": false
+                    }
+                ]
+            },
+            "networking": {
+                "tags": [
+                    {
+                        "value": "networking",
+                        "fixed": false
+                    }
+                ]
+            }
+        }
+    },
+    "globals": {
+    }
+}

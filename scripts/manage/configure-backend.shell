@@ -1,0 +1,323 @@
+#!/usr/bin/env bash
+
+## File: ./scripts/manage/configure-backend.shell
+# __version__ = "0.1.0"
+
+# Description:
+# This script automates the management of Terraform's remote state backend hosted on
+# Google Cloud Storage (GCS). It handles creation, inspection, download, and safe
+# deletion of state buckets on a per-environment basis. It is designed to be fully
+# environment-driven, JSON-configurable, and compatible with multi-workspace setups.
+
+# Features:
+# - Validates and optionally creates a GCS bucket for Terraform remote state
+# - Downloads and converts remote .tfstate files into local JSON for inspection
+# - Safely destroys the backend bucket with automatic local backup and confirmation
+# - Supports override of config files, bucket names, prefixes, and workspace targets
+# - Applies consistent naming convention: <env>--<purpose>--<project_id>
+# - Automatically resolves bucket location from active GCP region
+# - Clean output formatting with support for dry-run, verbose, and debug tracing
+
+# Expected Behavior:
+# - Script must be run with GCP credentials already activated (via user or service account)
+# - Configuration is read from `project.json` and `configs/policies.json`
+# - Operates in-place; creates `.local/` for downloaded states and inspection outputs
+# - Will not proceed if required files or dependencies are missing
+
+# Dependencies:
+# - `gcloud`: CLI for Google Cloud interaction
+# - `gsutil`: CLI for GCS bucket operations
+# - `jq`: JSON parsing and transformation
+# - `terraform`: Required for `.tfstate` to JSON conversion
+
+# Usage:
+# To run the script with various actions:
+# > ./scripts/manage/configure-backend.shell \
+#     --list \
+#     --create \
+#     --download \
+#     --destroy \
+#     --project='./project.json' \
+#     --target='dev' \
+#     --policies='./configs/policies.json' \
+#     --name='terraform-prototype' \
+#     --prefix='terraform/state'
+
+# Additional flags:
+#   --dry-run   : Perform a dry run without executing destructive actions
+#   --verbose   : Enable step-by-step command logging
+#   --debug     : Enable shell tracing (`set -x`) for full execution insight
+#   --help      : Print help and usage information
+
+set -eou pipefail ;
+# set -x ;
+
+#------------------------------------------------------------------------------#
+
+function bucket_configuration () {
+    if bucket_exists; then
+            echo -e "Bucket gs://${bucket_name} exists.";
+            echo -e "Bucket configuration:";
+            gcloud storage buckets \
+                   describe "gs://${bucket_name}" --format=json;
+            echo -e;
+      else  echo -e "Bucket gs://${bucket_name} does not exist!\n";
+            return 1;
+    fi;
+    return 0;
+  }; alias bucket-configuration='bucket_configuration';
+
+#------------------------------------------------------------------------------#
+
+function bucket_exists () {
+    gsutil ls -b "gs://${bucket_name}" >/dev/null 2>&1;
+    return $?;
+  }; alias bucket-exist='bucket_exists';
+
+#------------------------------------------------------------------------------#
+
+function create_bucket () {
+    REGION=$( gcloud config get-value compute/region );
+    # echo -en "Creating bucket: gs://${bucket_name}";
+    gsutil mb -p "$(
+      gcloud config get-value project
+    )" -l ${REGION%%-*} -b on "gs://${bucket_name}";
+    # Wait for the bucket to propagate (if needed)
+    for i in {1..3}; do
+      if bucket_exists; then
+        echo -e "Bucket gs://${bucket_name} was created and confirmed!\n";
+        break;
+      fi;
+      # echo "Waiting for bucket visibility...";
+      echo -n '.'; sleep 5;
+    done;
+    bucket_configuration;
+    return 0;
+  }; alias create-bucket='create_bucket';
+
+#------------------------------------------------------------------------------#
+
+function display_help () {
+    local script_filename="$( basename ${script_name} )";
+    echo -e "
+    Usage: ${script_filename} [OPTIONS]
+
+    Options:
+    -l, --list              List the current bucket status and configuration
+    -c, --create            Create the bucket if it does not exist
+    -w, --download          Download and convert remote Terraform state to local JSON
+    -d, --destroy           Destroy the bucket and optionally backup state locally
+
+    -j, --project=PATH      Path to the project configuration file (default: ./project.json)
+    -t, --target=NAME       Target workspace/environment name
+    -p, --policies=PATH     Path to the policies configuration file (default: ./configs/policies.json)
+    -n, --name=NAME         Name of the GCS bucket to manage
+    -x, --prefix=NAME       State prefix path within the bucket
+
+    --help                  Show this help message and exit
+    --dry-run               Print actions without executing them
+    --verbose               Enable verbose output
+    --debug                 Enable debug mode with trace output
+
+    Examples:
+    ${script_filename} --create --target=testing
+    ${script_filename} --list --target=prod --name=bucket-name
+    ${script_filename} --download --dry-run --verbose
+    ";
+    return 0;
+  }; alias display-help='display_help';
+
+#------------------------------------------------------------------------------#
+
+function destroy_bucket () {
+    if download_states; then
+            echo -e "\nTerraform State was/were found and downloaded.";
+      else  echo "\nNo remote Terraform states found.";
+    fi;
+    echo -e "\nDeleting backend-bucket: gs://${bucket_name}";
+    echo -e "You have 10 seconds to cancel. To proceed, please enter 'yes|y'.\n";
+    read -t 10 -p "Type 'yes|y' to confirm: " confirmation || confirmation=;
+    local answer="${confirmation:0:1}";
+    if [[ "${answer,,}" == "y" ]]; then
+      echo -e;
+      gsutil -m -o "GSUtil:parallel_process_count=1" rm -r "gs://${bucket_name}" || {
+        echo -e "Failed to destroy bucket.\n";
+        return 1;
+      };
+      echo -e "\nBucket gs://${bucket_name} was destroyed."
+      echo -e "Local backup is under ${local_state_dir}/\n";
+    fi;
+    [[ -z ${confirmation} ]] && echo -e "\nRequest was cancelled/ignored. No action taken.\n";
+    return 0;
+  }; alias destroy-bucket='destroy_bucket';
+
+#------------------------------------------------------------------------------#
+
+function download_states() {
+    echo -e "Searching for Terraform state files ...\n";
+    local found_any_state=0;
+    workspaces=$(
+      jq -r '.configs.targets.sets | keys[]' "${project_filepath}"
+    );
+    for ws in ${workspaces[@]}; do
+        source_filepath="gs://${bucket_name}/${state_prefix}/${ws}.tfstate";
+        target_filepath="${local_state_dir}/${ws}.tfstate";
+        if gsutil -q stat "${source_filepath}"; then
+                echo -en "Downloading Terraform state '${ws}' ...";
+                if gsutil cp "${source_filepath}" "${target_filepath}" >/dev/null 2>&1; then
+                        echo -e "Downloaded Terraform state '${ws}' -> ${target_filepath}";
+                  else  echo -e "WARNING: Failed to download: ${source_filepath}" >&2;
+                        continue;
+                fi;
+                # echo -e " done.";
+                echo -e "Exporting Bucket Config for: ${target_filepath}\n";
+                # Skip if file is missing or empty
+                if [[ ! -s "${target_filepath}" ]]; then
+                    echo -e "Skipping empty or missing file: ${target_filepath}";
+                    continue;
+                fi;
+                local json_file="${target_filepath}.json";
+                local outputs_errors="outputs.error";
+                unset TF_LOG && TF_IN_AUTOMATION=1 \
+                terraform show -json 2>${outputs_errors} \
+                | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+                | jq -c . > "${json_file}" ;
+                echo -e ;
+                found_any_state=1;
+          else  echo -e "No Terraform State file found for workspace: '${ws}'";
+        fi;
+    done;
+    if [[ "${found_any_state:-}" -eq 0 ]]; then
+            echo -e "No state files downloaded. Cleaning up empty ${local_state_dir}/\n";
+            rm -rf "${local_state_dir}" 2>/dev/null;
+            return 1;
+      else  echo -e "Download complete. Files saved in: ${local_state_dir}/\n";
+            ls -l "${local_state_dir}/";
+    fi;
+    if ! compgen -G "${local_state_dir}/*.tfstate" > /dev/null; then
+      echo -e "WARNING: No .tfstate files found in ${local_state_dir}/. Artifact upload may skip." >&2;
+    fi;
+    return 0;
+  }; alias download-states='download_states';
+
+#------------------------------------------------------------------------------#
+
+function main () {
+    ## tracking_process ${FUNCNAME} "${@}";
+    oIFS="${IFS}";
+    for xitem in "${@}"; do
+      IFS='=' read -r key value <<< "$(
+        echo -e "${xitem}" | sed -e '1s|^\(-\)\{1,\}||'
+      )"; #echo -e "\nxitem: '${xitem}'\nkey: '${key}'\t->\tvalue: '${value}'";
+      [[ $key =~ ^(list|l)$ ]] && local action_list=true;
+      [[ $key =~ ^(create|c)$ ]] && local action_create=true;
+      [[ $key =~ ^(download|w)$ ]] && local action_download=true;
+      [[ $key =~ ^(destroy|d)$ ]] && local action_destroy=true;
+      [[ $key =~ ^(project|j)$ ]] && local project_filepath="${value}";
+      [[ $key =~ ^(target|t)$ ]] && local target_workspace="${value}";
+      [[ $key =~ ^(policies|p)$ ]] && local policies_filepath="${value}";
+      [[ $key =~ ^(name|n)$ ]] && local bucket_name="${value}";
+      [[ $key =~ ^(prefix|x)$ ]] && local state_prefix="${value}";
+      #### ---------------------------------------------------------------------
+      [[ $key == "help" ]] && local script_helper=true;
+      [[ $key == "dry-run" ]] && local dry_run=true;
+      [[ $key == "verbose" ]] && local verbose=true
+      [[ $key == "debug" ]] && local debug=true
+    done; IFS="${oIFS}";
+    #### -----------------------------------------------------------------------
+    if [[ ${script_helper:-} == true ]]; then
+      display_help;
+      exit 0;
+    fi;
+    local project_id=$( gcloud config get-value project );
+    [[ -z ${project_filepath:-} ]] && local project_filepath="./project.json";
+    if [[ ! -f "${project_filepath}" ]]; then
+      echo "Project file not found: ${project_filepath}";
+      exit 4;
+    fi;
+    [[ -z ${target_workspace:-} ]] && local target_workspace="$(
+      jq -r '.defaults.target' "${project_filepath}"
+    )";
+    [[ -z ${policies_filepath:-} ]] && local policies_filepath="./configs/policies.json";
+    if [[ ! -f "${policies_filepath}" ]]; then
+      echo "Policies file not found: ${policies_filepath}";
+      exit 5;
+    fi;
+    if [[ -z ${bucket_name:-} ]]; then
+      local bucket_name=$(
+        jq -r '.storage.bucket.name' "${policies_filepath}"
+      );
+      local rbac_policy=$(
+        jq -r '.storage.bucket.rbac' "${policies_filepath}"
+      );
+      [[ ${rbac_policy:-} == true ]] && {
+        bucket_name="${target_workspace}--${bucket_name}--${project_id}"
+      };
+    fi;
+    [[ -z ${state_prefix:-} ]] && local state_prefix="$(
+      jq -r '.storage.bucket.prefix' "${policies_filepath}"
+    )"; [[ -z ${state_prefix:-} ]] && exit 6;
+    #### -----------------------------------------------------------------------
+    [[ -z ${dry_run:-} ]] && local dry_run=false;
+    [[ -z ${debug:-} ]] && local debug=false;
+    [[ -z ${verbose:-} ]] && local verbose=false;
+    #### -----------------------------------------------------------------------
+    if [[ ${action_list:-} == true ]]; then
+            # echo -e "\nAction (List): ${action_list}\n";
+            bucket_configuration;
+      else  local action_list=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    if [[ ${action_create:-} == true ]]; then
+            # echo -e "\nAction (Create): ${action_create}\n";
+            if ! bucket_exists; then
+                    create_bucket;
+              else  bucket_configuration;
+            fi;
+      else  local action_create=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    if [[ ${action_download:-} == true ]]; then
+            # echo -e "\nAction (Download): ${action_download}\n";
+            if bucket_exists; then
+              bucket_configuration;
+              download_states;
+            fi;
+      else  local action_download=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    if [[ ${action_destroy:-} == true ]]; then
+            # echo -e "\nAction (Destroy): ${action_destroy}\n";
+            if bucket_exists; then
+              bucket_configuration;
+              destroy_bucket;
+            fi;
+      else  local action_destroy=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    return 0;
+}; alias configure-backend='main';
+
+# # Software/Package requirements
+# command -v jq >/dev/null || {
+#   echo -e "'jq' is required but not installed."; exit 1;
+# };
+# command -v gcloud >/dev/null || {
+#   echo -e "'gcloud' is required but not installed."; exit 2;
+# };
+# command -v gsutil >/dev/null || {
+#   echo -e "'gsutil' is required but not installed.";
+#   gcloud components install gsutil;
+# };
+# command -v terraform >/dev/null || {
+#   echo -e "'terraform' is required but not installed."; exit 3;
+# };
+
+local_state_dir=".local";
+mkdir -p "${local_state_dir}";
+
+export script_name="${0}";
+if [[ ${#@} -eq 0 ]]; then
+        main --help ;
+  else  echo -e; main "${@}"; echo -e "Done.\n";
+fi;

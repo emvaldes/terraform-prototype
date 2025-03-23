@@ -1,0 +1,322 @@
+$ ./scripts/manage/inspect-services.shell $( terraform output -raw forwarding_rule_name );
+
+================================================================================
+Forwarding Rule Description: dev--http-forwarding-rule
+gcloud compute forwarding-rules describe dev--http-forwarding-rule --global --format=json
+
+{
+  "IPAddress": "34.111.10.239",
+  "IPProtocol": "TCP",
+  "creationTimestamp": "2025-03-26T23:25:50.216-07:00",
+  "description": "",
+  "fingerprint": "uFJneYVugTU=",
+  "id": "384064139154772353",
+  "kind": "compute#forwardingRule",
+  "labelFingerprint": "42WmSpB8rSM=",
+  "loadBalancingScheme": "EXTERNAL",
+  "name": "dev--http-forwarding-rule",
+  "networkTier": "PREMIUM",
+  "portRange": "80-80",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule",
+  "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/dev--web-http-proxy"
+}
+
+External IP: 34.111.10.239
+Target Proxy: dev--web-http-proxy
+
+================================================================================
+Target HTTP Proxy: dev--web-http-proxy
+gcloud compute target-http-proxies describe dev--web-http-proxy --format=json
+
+{
+  "creationTimestamp": "2025-03-26T23:25:38.287-07:00",
+  "fingerprint": "v7iWTG4S3HE=",
+  "id": "2717223303579783565",
+  "kind": "compute#targetHttpProxy",
+  "name": "dev--web-http-proxy",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/dev--web-http-proxy",
+  "urlMap": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/dev--web-url-map"
+}
+
+URL Map: dev--web-url-map
+
+================================================================================
+URL Map: dev--web-url-map
+gcloud compute url-maps describe dev--web-url-map --format=json
+
+{
+  "creationTimestamp": "2025-03-26T23:25:27.039-07:00",
+  "defaultService": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/dev--web-backend-service",
+  "fingerprint": "wGnExg4QkgA=",
+  "id": "422004793620910520",
+  "kind": "compute#urlMap",
+  "name": "dev--web-url-map",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/dev--web-url-map"
+}
+
+Backend Service: dev--web-backend-service
+
+================================================================================
+Backend Service: dev--web-backend-service
+gcloud compute backend-services describe dev--web-backend-service --global --format=json
+
+{
+  "affinityCookieTtlSec": 0,
+  "backends": [
+    {
+      "balancingMode": "UTILIZATION",
+      "capacityScaler": 1.0,
+      "group": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/dev--web-servers-group"
+    }
+  ],
+  "connectionDraining": {
+    "drainingTimeoutSec": 300
+  },
+  "creationTimestamp": "2025-03-26T23:24:44.673-07:00",
+  "description": "",
+  "enableCDN": false,
+  "fingerprint": "5QV82IqbX4I=",
+  "healthChecks": [
+    "https://www.googleapis.com/compute/v1/projects/<project-name>/global/healthChecks/dev--http-health-check"
+  ],
+  "id": "5459670268375552451",
+  "kind": "compute#backendService",
+  "loadBalancingScheme": "EXTERNAL",
+  "name": "dev--web-backend-service",
+  "port": 80,
+  "portName": "http",
+  "protocol": "HTTP",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/backendServices/dev--web-backend-service",
+  "sessionAffinity": "NONE",
+  "timeoutSec": 30,
+  "usedBy": [
+    {
+      "reference": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/dev--web-url-map"
+    }
+  ]
+}
+
+Group Instance: dev--web-servers-group
+Group Region: us-west2
+
+================================================================================
+Backend Health Status
+gcloud compute backend-services get-health dev--web-backend-service --global --format=json
+
+[
+  {
+    "backend": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/dev--web-servers-group",
+    "status": {
+      "healthStatus": [
+        {
+          "healthState": "HEALTHY",
+          "instance": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a/instances/web-server-zk22",
+          "ipAddress": "10.0.1.2",
+          "port": 80
+        }
+      ],
+      "kind": "compute#backendServiceGroupHealth"
+    }
+  }
+]
+
+Health Status - State: HEALTHY
+
+================================================================================
+Web Server HTTP Response Check
+curl --head --connect-timeout 10 http://34.111.10.239
+
+Waiting for web-server (34.111.10.239) response
+HTTP/1.1 200 OK
+Date: Thu, 27 Mar 2025 07:39:53 GMT
+Server: Apache/2.4.62 (Debian)
+Last-Modified: Thu, 27 Mar 2025 06:25:26 GMT
+ETag: "36-6314d04fd3c82"
+Accept-Ranges: bytes
+Content-Length: 54
+Content-Type: text/html
+Via: 1.1 google
+
+
+================================================================================
+Autoscaler Configuration: dev--web-autoscaler
+curl -H "Authorization: Bearer ***" https://compute.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/autoscalers/dev--web-autoscaler
+
+{
+  "kind": "compute#autoscaler",
+  "id": "2404148487240896963",
+  "creationTimestamp": "2025-03-26T23:24:44.142-07:00",
+  "name": "dev--web-autoscaler",
+  "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroupManagers/dev--web-servers-group",
+  "autoscalingPolicy": {
+    "minNumReplicas": 1,
+    "maxNumReplicas": 4,
+    "coolDownPeriodSec": 60,
+    "cpuUtilization": {
+      "utilizationTarget": 0.6,
+      "predictiveMethod": "NONE"
+    },
+    "mode": "ON"
+  },
+  "region": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/autoscalers/dev--web-autoscaler",
+  "status": "ACTIVE",
+  "recommendedSize": 1
+}
+
+Min Replicas: 1
+Max Replicas: 4
+Cooldown:     60
+CPU Target:   0.6
+
+================================================================================
+Reserved PSA IP Range: dev--cloudsql-psa-range
+gcloud compute addresses describe dev--cloudsql-psa-range --global --project=<project-name> --format=json
+
+{
+  "address": "10.219.0.0",
+  "addressType": "INTERNAL",
+  "creationTimestamp": "2025-03-26T23:24:09.469-07:00",
+  "description": "",
+  "id": "6155104956262732262",
+  "kind": "compute#address",
+  "labelFingerprint": "vezUS-42LLM=",
+  "labels": {
+    "goog-terraform-provisioned": "true"
+  },
+  "name": "dev--cloudsql-psa-range",
+  "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/dev--webapp-vpc",
+  "networkTier": "PREMIUM",
+  "prefixLength": 16,
+  "purpose": "VPC_PEERING",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/addresses/dev--cloudsql-psa-range",
+  "status": "RESERVED"
+}
+
+Address Type: INTERNAL
+Prefix Length: 16
+Purpose: VPC_PEERING
+Network: https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/dev--webapp-vpc
+
+================================================================================
+PSA VPC Peering Connections
+gcloud services vpc-peerings list --network=dev--webapp-vpc --project=<project-name> --format=json
+
+[
+  {
+    "network": "projects/776293755095/global/networks/dev--webapp-vpc",
+    "peering": "servicenetworking-googleapis-com",
+    "reservedPeeringRanges": [
+      "dev--cloudsql-psa-range"
+    ],
+    "service": "services/servicenetworking.googleapis.com"
+  }
+]
+
+Instance: web-server-zk22 (us-west2-a)
+{
+  "cpuPlatform": "Intel Broadwell",
+  "creationTimestamp": "2025-03-26T23:24:40.125-07:00",
+  "deletionProtection": false,
+  "disks": [
+    {
+      "architecture": "X86_64",
+      "autoDelete": true,
+      "boot": true,
+      "deviceName": "persistent-disk-0",
+      "diskSizeGb": "10",
+      "guestOsFeatures": [
+        {
+          "type": "UEFI_COMPATIBLE"
+        },
+        {
+          "type": "VIRTIO_SCSI_MULTIQUEUE"
+        },
+        {
+          "type": "GVNIC"
+        }
+      ],
+      "index": 0,
+      "interface": "SCSI",
+      "kind": "compute#attachedDisk",
+      "licenses": [
+        "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/licenses/debian-11-bullseye"
+      ],
+      "mode": "READ_WRITE",
+      "source": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a/disks/web-server-zk22",
+      "type": "PERSISTENT"
+    }
+  ],
+  "fingerprint": "FRiHEmGK2po=",
+  "id": "4819576397306089928",
+  "kind": "compute#instance",
+  "labelFingerprint": "vezUS-42LLM=",
+  "labels": {
+    "goog-terraform-provisioned": "true"
+  },
+  "lastStartTimestamp": "2025-03-26T23:24:53.522-07:00",
+  "machineType": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a/machineTypes/e2-micro",
+  "metadata": {
+    "fingerprint": "WHwKTwURN_s=",
+    "items": [
+      {
+        "key": "instance-template",
+        "value": "projects/776293755095/global/instanceTemplates/dev--web-server-template--20250327062420981900000001"
+      },
+      {
+        "key": "created-by",
+        "value": "projects/776293755095/regions/us-west2/instanceGroupManagers/dev--web-servers-group"
+      },
+      {
+        "key": "startup-script",
+        "value": "#!/bin/bash\n\n# File: ./scripts/configure/apache-webserver.shell\n# Version: 0.1.0\n\n# Update package lists\nsudo apt update -y;\n\n# Install Apache web server\nsudo apt install -y apache2;\n\n# Start and enable Apache\nsudo systemctl start apache2;\nsudo systemctl enable apache2;\n\n# Create a simple HTML page to verify the instance is running\necho -e \"<h1>Server $(hostname) is running behind ALB</h1>\" \\\n   | sudo tee /var/www/html/index.html;\n"
+      },
+      {
+        "key": "ssh-keys",
+        "value": "devops_workflows:ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLN08AwnkWbXEfWYuxqA6ea4bBT0jXdi+sNtYNzVzNqN3EiLWKu41ZqohpoctU9yCLmMEFOhp4AnlaJ2J/28g9s= google-ssh {\"userName\":\"devops.workflows@gmail.com\",\"expireOn\":\"2025-03-27T06:31:14+0000\"}\ndevops_workflows:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAHnZB++Oag5eOrncWT5Eu7jNVLqGIIvOYtFypbSec3P2GF1hSHtlZB8NnBu1xsOzI+2b6O2FP9jOEFpnbDNhAGV+Pez1U0CXKWqYZkJAs4gLCMw92n91ciIid7DobPDh32osQ8CxT4n7l6cQBPYyfKtPnJ2AMRb6QBYRcxVE4mbc1s8la8JAgx3bQ4zDCuUIQ8+Cx4U8KoYzcOoDFkHWzCOMEdhOrHWnZW299rWZV2OJkoJJFb/4WWbA3I730qShbcCFCzrn+kwULuD1/AAA2QsrZvCRrPmSw2qVimT4uQrOt1YNUKpn3ftWcvSgAWdrfpL4DlQkJZgS55szK7KT5DM= google-ssh {\"userName\":\"devops.workflows@gmail.com\",\"expireOn\":\"2025-03-27T06:31:18+0000\"}"
+      }
+    ],
+    "kind": "compute#metadata"
+  },
+  "name": "web-server-zk22",
+  "networkInterfaces": [
+    {
+      "fingerprint": "4qv2A2QIuqU=",
+      "kind": "compute#networkInterface",
+      "name": "nic0",
+      "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/dev--webapp-vpc",
+      "networkIP": "10.0.1.2",
+      "stackType": "IPV4_ONLY",
+      "subnetwork": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/subnetworks/dev--webapp-subnet"
+    }
+  ],
+  "satisfiesPzi": true,
+  "scheduling": {
+    "automaticRestart": true,
+    "onHostMaintenance": "MIGRATE",
+    "preemptible": false,
+    "provisioningModel": "STANDARD"
+  },
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a/instances/web-server-zk22",
+  "shieldedInstanceConfig": {
+    "enableIntegrityMonitoring": true,
+    "enableSecureBoot": false,
+    "enableVtpm": true
+  },
+  "shieldedInstanceIntegrityPolicy": {
+    "updateAutoLearnPolicy": true
+  },
+  "startRestricted": false,
+  "status": "RUNNING",
+  "tags": {
+    "fingerprint": "IMYPDi8hCX8=",
+    "items": [
+      "couchsurfing",
+      "http-server",
+      "ssh-access"
+    ]
+  },
+  "zone": "https://www.googleapis.com/compute/v1/projects/<project-name>/zones/us-west2-a"
+}
+
+Completed the Application Load Balancer inspection.

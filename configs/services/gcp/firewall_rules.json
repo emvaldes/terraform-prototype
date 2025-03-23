@@ -1,0 +1,34 @@
+{
+    "allow_ssh": {
+        "name": "allow-ssh-restricted",
+        "protocol": "tcp",
+        "ports": [
+            "22"
+        ],
+        "target_tags": [
+            "ssh-access"
+        ]
+    },
+    "allow_ssh_iap": {
+        "name": "allow-ssh-iap",
+        "protocol": "tcp",
+        "ports": [
+            "22"
+        ],
+        "target_tags": [
+            "ssh-access"
+        ]
+    },
+    "allow_http_https": {
+        "name": "allow-http-https",
+        "protocol": "tcp",
+        "ports": [
+            "80",
+            "443"
+        ]
+    },
+    "public_http_ranges": [
+        "0.0.0.0/0"
+    ],
+    "tags": []
+}

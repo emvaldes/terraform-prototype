@@ -1,0 +1,103 @@
+{
+    "accounts": {
+        "users": {},
+        "groups": {},
+        "service": {
+            "read_only": {
+                "name": "ro--service-account",
+                "caption": "Service Account (Read Only)"
+            }
+        },
+        "cloud_function": {
+            "read_only": {
+                "name": "ro--cloud-function",
+                "caption": "Cloud Function SA (Stress Test)"
+            }
+        }
+    },
+    "credentials": {
+        "dev": {
+            "id": "Development",
+            "description": "Development environment service account",
+            "name": "dev-account",
+            "filename": "dev-credentials.json",
+            "group": "devs",
+            "environments": [
+                "dev"
+            ],
+            "roles": [
+                {
+                    "resource": "bucket",
+                    "role": "roles/storage.objectAdmin"
+                },
+                {
+                    "resource": "project",
+                    "role": "roles/viewer"
+                }
+            ]
+        },
+        "staging": {
+            "id": "Staging",
+            "description": "Staging environment service account",
+            "name": "staging-account",
+            "filename": "staging-credentials.json",
+            "group": "staging",
+            "environments": [
+                "dev",
+                "staging"
+            ],
+            "roles": [
+                {
+                    "resource": "bucket",
+                    "role": "roles/storage.objectAdmin"
+                },
+                {
+                    "resource": "project",
+                    "role": "roles/logging.viewer"
+                }
+            ]
+        },
+        "prod": {
+            "id": "Production",
+            "description": "Production environment service account",
+            "name": "prod-account",
+            "filename": "prod-credentials.json",
+            "group": "prod",
+            "environments": [
+                "prod"
+            ],
+            "roles": [
+                {
+                    "resource": "bucket",
+                    "role": "roles/storage.objectAdmin"
+                },
+                {
+                    "resource": "project",
+                    "role": "roles/monitor.viewer"
+                }
+            ]
+        },
+        "devops": {
+            "id": "DevOps",
+            "description": "DevOps service account",
+            "name": "devops-account",
+            "filename": "devops-credentials.json",
+            "group": "devops",
+            "environments": [
+                "dev",
+                "staging",
+                "prod"
+            ],
+            "roles": [
+                {
+                    "resource": "bucket",
+                    "role": "roles/storage.objectAdmin"
+                },
+                {
+                    "resource": "project",
+                    "role": "roles/logging.logWriter"
+                }
+            ]
+        }
+    }
+}

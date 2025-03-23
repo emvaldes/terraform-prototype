@@ -1,0 +1,1034 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/inspect-services.shell
+# Version: 0.0.1
+
+set -eou pipefail ;
+# set -x ;
+
+function is_invalid() { [[ -z "$1" || "$1" == "null" ]]; }
+
+# is_invalid ""     && echo "true" || echo "false"  # prints "true"
+# is_invalid "null" && echo "true" || echo "false"  # prints "true"
+# is_invalid "abc"  && echo "true" || echo "false"  # prints "false"
+
+project_id="$(
+  gcloud config get-value project 2>/dev/null || true
+)"
+if is_invalid "${project_id}"; then
+  echo >&2 "Error: GCP project ID could not be resolved from gcloud config."
+  exit 1
+fi
+
+http_forwarding_rule_name="${1:-$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform output -raw http_forwarding_rule_name 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)}"
+if is_invalid "${http_forwarding_rule_name}"; then
+  echo >&2 "Error: 'http_forwarding_rule_name' is missing or could not be resolved."
+  exit 1
+fi
+
+output_format="json";
+liner="
+#------------------------------------------------------------------------------#
+";
+
+#-------------------------------------------------------------------------------
+
+function forwarding_rules () {
+    local forwarding_rule__json="$(
+      gcloud compute forwarding-rules \
+             describe "${http_forwarding_rule_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    if [[ -n ${forwarding_rule__json} ]]; then
+
+            ## Heading components
+            local command="gcloud compute forwarding-rules describe ${http_forwarding_rule_name} --global --format=${output_format}";
+            echo -e "${liner}Forwarding Rule Description: ${http_forwarding_rule_name}\n${command}\n";
+
+            ## JSON Output:
+            jq . <<< ${forwarding_rule__json};
+
+            ## Extracting properties:
+            ## target_ip_address=$( gcloud compute forwarding-rules describe ${http_forwarding_rule_name} --global --format="get(IPAddress)" );
+            export target_ip_address="$(
+              jq -r '.IPAddress' <<< "${forwarding_rule__json}"
+            )"
+            if is_invalid "${target_ip_address}"; then
+              echo >&2 "Error: Could not extract IP address from forwarding rule JSON."
+              exit 1
+            fi
+
+            local target_proxy_url="$(
+              jq -r '.target' <<< "${forwarding_rule__json}"
+            )"
+            if [[ -z "${target_proxy_url}" || "${target_proxy_url}" == "null" ]]; then
+              echo >&2 "Error: Could not extract target proxy URL from forwarding rule JSON."
+              exit 1
+            fi
+
+            export target_proxy_name=$( basename "$target_proxy_url" );
+
+            ## Exposing properties:
+            echo -e;
+            echo -e "External IP: ${target_ip_address}";
+            echo -e "Target Proxy: ${target_proxy_name}";
+
+      else  echo -e "Not found!";
+    fi;
+    return 0;
+}; alias forwarding-rules='forwarding_rules';
+
+function target_http_proxies () {
+    local target_http_proxies__json="$(
+      gcloud compute target-http-proxies \
+             describe "${target_proxy_name}" \
+             --format=${output_format}
+    )";
+    if [[ -n ${target_http_proxies__json} ]]; then
+            ## Heading components
+            local command="gcloud compute target-http-proxies describe ${target_proxy_name} --format=${output_format}";
+            echo -e "${liner}Target HTTP Proxy: ${target_proxy_name}\n${command}\n";
+            ## JSON Output:
+            jq . <<< ${target_http_proxies__json};
+            ## Extracting properties:
+            local url_map_url=$(
+              jq -r '.urlMap' <<< "$target_http_proxies__json"
+            );
+            if is_invalid "${url_map_url}"; then
+              echo >&2 "Error: Could not extract URL map from target proxy JSON."
+              exit 1
+            fi
+            export url_map_name=$( basename "${url_map_url}" );
+            ## Exposing properties:
+            echo -e;
+            echo -e "URL Map: ${url_map_name}";
+      else  echo -e "Not found!";
+    fi;
+    return 0;
+}; alias target-http-proxies='target_http_proxies';
+
+function url_maps () {
+    local url_maps__json="$(
+      gcloud compute url-maps \
+             describe "${url_map_name}" \
+             --format=${output_format}
+    )";
+    if [[ -n ${url_maps__json} ]]; then
+            ## Heading components
+            local command="gcloud compute url-maps describe ${url_map_name} --format=${output_format}";
+            echo -e "${liner}URL Map: ${url_map_name}\n${command}\n";
+            ## JSON Output:
+            jq . <<< ${url_maps__json};
+            ## Extracting properties:
+            local backend_service_url="$(
+              jq -r '.defaultService' <<< "${url_maps__json}"
+            )"
+            if is_invalid "${backend_service_url}"; then
+              echo >&2 "Error: Could not extract backend service URL from URL map JSON."
+              exit 1
+            fi
+            export backend_service_name="$(basename "${backend_service_url}")"
+            ## Exposing properties:
+            echo -e;
+            echo -e "Backend Service: ${backend_service_name}";
+
+      else  echo -e "Not found!";
+    fi;
+    return 0;
+}; alias url-maps='url_maps';
+
+function backend_services () {
+    local backend_services__json="$(
+      gcloud compute backend-services \
+             describe "${backend_service_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    if [[ -n ${backend_services__json} ]]; then
+
+            ## Heading components
+            local command="gcloud compute backend-services describe ${backend_service_name} --global --format=${output_format}";
+            echo -e "${liner}Backend Service: ${backend_service_name}\n${command}\n";
+
+            ## JSON Output:
+            jq . <<< ${backend_services__json};
+
+            ## Extracting properties:
+            export health_check_name="$(
+              jq -r '.healthChecks[0]' <<< "${backend_services__json}" | awk -F/ '{print $(NF)}'
+            )"
+            if is_invalid "${health_check_name}"; then
+              echo >&2 "Error: Failed to extract health check name from backend service JSON."
+              exit 1
+            fi
+
+            local instance_group_url="$(
+              jq -r '.backends[0].group' <<< "${backend_services__json}"
+            )"
+            if is_invalid "${instance_group_url}"; then
+              echo >&2 "Error: Failed to extract instance group URL from backend service JSON."
+              exit 1
+            fi
+
+            export instance_group_name="$(basename "${instance_group_url}")"
+            export instance_group_region="$(echo "${instance_group_url}" | awk -F/ '{print $(NF-2)}')"
+
+            ## Exposing properties:
+            echo -e;
+            echo -e "Group Instance:     ${instance_group_name}";
+            echo -e "Group Region:       ${instance_group_region}";
+            echo -e "HTTP Health Check:  ${health_check_name}";
+
+      else  echo -e "Not found!";
+    fi;
+    return 0;
+}; alias backend-services='backend_services';
+
+function health_status () {
+    local health_status__json="$(
+      gcloud compute backend-services \
+             get-health "${backend_service_name}" \
+             --global \
+             --format=${output_format}
+    )";
+    if [[ -n ${health_status__json} ]]; then
+
+            ## Heading components
+            local command="gcloud compute backend-services get-health ${backend_service_name} --global --format=${output_format}";
+            echo -e "${liner}Backend Health Status\n${command}\n";
+
+            ## JSON Output:
+            jq . <<< ${health_status__json};
+
+            ## Extracting properties:
+            local health_status_state="$(
+              jq -r '.[].status.healthStatus[].healthState' <<< "${health_status__json}"
+            )"
+            if [[ -z "${health_status_state}" || "${health_status_state}" == "null" ]]; then
+              echo >&2 "Error: Failed to extract health status state from backend health check."
+              exit 1
+            fi
+
+            ## Exposing properties:
+            echo -e;
+            echo -e "Health Status - State: ${health_status_state}";
+
+      else  echo -e "Not found!";
+    fi;
+    return 0;
+}; alias health-status='health_status';
+
+  function health_checks () {
+      local health_check_json="$(
+        gcloud compute health-checks \
+               describe "${health_check_name}" \
+               --format=${output_format} \
+               --project="${project_id}" 2>/dev/null || echo ""
+      )";
+      if [[ -n "${health_check_json}" ]]; then
+
+              local command="gcloud compute health-checks describe ${health_check_name} --format=${output_format} --project=${project_id}";
+              echo -e "${liner}Health Check Configuration: ${health_check_name}\n${command}\n";
+              jq . <<< "${health_check_json}";
+
+              ## Extracting properties:
+              local health_check_intervals=$(
+                jq -r '.checkIntervalSec' <<< "${health_check_json}"
+              );
+              local health_check_timeout=$(
+                jq -r '.timeoutSec' <<< "${health_check_json}"
+              )
+              local health_check_port=$(
+                jq -r '.port' <<< "${health_check_json}"
+              );
+
+              ## Exposing properties:
+              echo -e "\nCheck Interval: ${health_check_intervals} seconds";
+              echo -e "Timeout:        ${health_check_timeout} seconds";
+              echo -e "Port:           ${health_check_port}";
+
+        else  echo -e "${liner}No health check found: ${health_check_name}\n";
+      fi;
+      return 0;
+}; alias health-checks='health_checks';
+
+function webserver_response () {
+    ## Heading components
+    local command="curl --head --connect-timeout 10 http://${target_ip_address}";
+    echo -e "${liner}Web Server HTTP Response Check\n${command}\n";
+    if [[ -z "${target_ip_address}" ]]; then
+            echo -e "Warning: Could not resolve IP address from forwarding rule!";
+            exit 1;
+      else  echo -en "Waiting for web-server (${target_ip_address}) response ";
+            until curl --head --silent --location \
+                       --connect-timeout 10 http://${target_ip_address} \
+                  | grep -q "200 OK"; do
+              printf "."; sleep 5;
+            done; echo -e;
+            curl --head --silent --location \
+                 --connect-timeout 10 \
+                 http://${target_ip_address} || echo "Request failed";
+    fi;
+    # HTTP/1.1 200 OK
+    # Date: Wed, 26 Mar 2025 02:08:30 GMT
+    # Server: Apache/2.4.62 (Debian)
+    # Last-Modified: Wed, 26 Mar 2025 01:59:17 GMT
+    # ETag: "36-631352f54ae7d"
+    # Accept-Ranges: bytes
+    # Content-Length: 54
+    # Content-Type: text/html
+    # Via: 1.1 google
+    return 0;
+}; alias webserver-response='webserver_response';
+
+function autoscaler_inspect () {
+
+    ## Fetch autoscaler data via API instead of broken gcloud CLI
+    local autoscaler_json=$(
+      curl -s -H "Authorization: Bearer $( gcloud auth print-access-token )" \
+           "https://compute.googleapis.com/compute/v1/projects/${project_id}/regions/${instance_group_region}/autoscalers" \
+      | jq -c --arg instance "${instance_group_name}" '.items[] | select(.target | contains($instance))'
+    );
+
+    ## Extract autoscaler name
+    local autoscaler_name="$(
+      jq -r '.name' <<< "${autoscaler_json}"
+    )"
+    if is_invalid "${autoscaler_name}"; then
+      echo >&2 "${liner}Could not extract autoscaler name from ${instance_group_name} API response."
+      return 1
+    fi
+
+    if [[ -n "${autoscaler_json}" ]]; then
+
+      ## Log command used
+      local command="curl -H \"Authorization: Bearer ***\" https://compute.googleapis.com/compute/v1/projects/${project_id}/regions/${instance_group_region}/autoscalers/${autoscaler_name}";
+      echo -e "${liner}Autoscaler Configuration: ${autoscaler_name}\n${command}\n";
+
+      ## Show JSON
+      jq . <<< "${autoscaler_json}";
+
+      ## Extracting properties:
+      local cooldown_periods=$(
+        jq -r '.autoscalingPolicy.coolDownPeriodSec' <<< "${autoscaler_json}"
+      );
+      local cpu_utilization=$(
+        jq -r '.autoscalingPolicy.cpuUtilization.utilizationTarget' <<< "${autoscaler_json}"
+      );
+
+      local replicas_minimum=$(
+        jq -r '.autoscalingPolicy.minNumReplicas' <<< "${autoscaler_json}"
+      );
+      local replicas_maximum=$(
+        jq -r '.autoscalingPolicy.maxNumReplicas' <<< "${autoscaler_json}"
+      );
+
+      ## Exposing properties:
+      echo -e "\nMin Replicas: ${replicas_minimum}";
+      echo -e "Max Replicas: ${replicas_maximum}";
+      echo -e "Cooldown:     ${cooldown_periods}";
+      echo -e "CPU Target:   ${cpu_utilization}";
+
+    fi;
+    return 0;
+}; alias autoscaler-inspect='autoscaler_inspect';
+
+function psa_inspect () {
+
+    local psa_range_name=$(
+      gcloud compute addresses list \
+             --project="${project_id}" \
+             --global \
+             --filter="purpose=VPC_PEERING" \
+             --format="value(name)" | head -n1
+    );
+    if [[ -z "${psa_range_name}" ]]; then
+      echo >&2 "Error: No VPC_PEERING address range found in project: ${project_id}"
+      return 1
+    fi
+
+    local psa_range_json=$(
+      gcloud compute addresses \
+             describe "${psa_range_name}" \
+             --global \
+             --project="${project_id}" \
+             --format="${output_format}" 2>/dev/null || echo ""
+    );
+    if [[ -n "${psa_range_json}" ]]; then
+
+            local command="gcloud compute addresses describe ${psa_range_name} --global --project=${project_id} --format=${output_format}";
+            echo -e "${liner}Reserved PSA IP Range: ${psa_range_name}\n${command}\n";
+            jq . <<< "${psa_range_json}";
+
+            ## Extracting properties:
+            psa_address_type=$(
+              jq -r '.addressType' <<< "${psa_range_json}"
+            );
+            psa_prefix_length=$(
+              jq -r '.prefixLength' <<< "${psa_range_json}"
+            );
+            psa_purpose=$(
+              jq -r '.purpose' <<< "${psa_range_json}"
+            );
+            psa_network=$(
+              jq -r '.network' <<< "${psa_range_json}"
+            );
+
+            ## Exposing properties:
+            echo -e "\nAddress Type: ${psa_address_type}";
+            echo -e "Prefix Length: ${psa_prefix_length}";
+            echo -e "Purpose: ${psa_purpose}";
+            echo -e "Network: ${psa_network}";
+
+      else  echo -e "${liner}No reserved PSA IP range found in project: ${project_id}\n";
+            return 0;
+    fi;
+
+    ## Extract network name from full URL
+    local network_url="$(
+      jq -r '.network' <<< "${psa_range_json}"
+    )"
+    if is_invalid "${network_url}"; then
+      echo >&2 "Error: Could not extract network URL from PSA range JSON."
+      return 1
+    fi
+
+    local network_name="$(basename "${network_url}")"
+
+    ## Check for active PSA connection (VPC peering)
+    local psa_peering_json=$(
+      gcloud services vpc-peerings list \
+             --network="${network_name}" \
+             --project="${project_id}" \
+             --format="${output_format}" 2>/dev/null || echo ""
+    );
+    if [[ -n "${psa_peering_json}" && "${psa_peering_json}" != "[]" ]]; then
+            local command="gcloud services vpc-peerings list --network=${network_name} --project=${project_id} --format=${output_format}";
+            echo -e "${liner}PSA VPC Peering Connections\n${command}\n";
+            jq . <<< "${psa_peering_json}";
+            ## Extracting properties:
+            ## Exposing properties:
+      else  echo -e "${liner}No active VPC peering connections found.\n";
+    fi;
+    return 0;
+}; alias psa-inspect='psa_inspect';
+
+#-------------------------------------------------------------------------------
+
+function instance_groups () {
+    local instance_data__json=$(
+      gcloud compute instance-groups \
+             list-instances "${instance_group_name}" \
+             --region="${instance_group_region}" \
+             --format=${output_format}
+    );
+    echo "${instance_data__json}" | jq -r '.[].instance' \
+    | while read -r instance_url; do
+      instance_zone=$(
+        echo "${instance_url}" | cut -d'/' -f9
+      );
+      instance_name=$(
+        echo "${instance_url}" | cut -d'/' -f11
+      );
+      echo -e "\nInstance: ${instance_name} (${instance_zone})";
+      gcloud compute instances \
+             describe "${instance_name}" \
+             --zone="${instance_zone}" \
+             --format=${output_format} \
+      | jq . ;
+    done;
+    return 0;
+}; alias instance-groups='instance_groups';
+
+function iam_inspect () {
+    echo -e "${liner}Unified IAM Role & Profile Inspection for Terraform-Managed Identities\n"
+    local workspace="${TF_WORKSPACE:-$(
+      unset TF_LOG && TF_IN_AUTOMATION=1 \
+      terraform workspace show 2>/dev/null \
+      | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+      | awk -F'::debug::' '{print $1}'
+    )}"
+    readonly_email=""
+    if [[ -n "${IAM_MEMBER_OVERRIDE:-}" ]]; then
+            readonly_email="${IAM_MEMBER_OVERRIDE}"
+      else  readonly_email=$(
+              unset TF_LOG && terraform output -raw readonly_service_account_email 2>/dev/null || echo ""
+            )
+            if is_invalid "${readonly_email}" && [[ -n "${TF_READONLY_EMAIL:-}" ]]; then
+              readonly_email="${TF_READONLY_EMAIL}"
+            fi
+    fi
+    if is_invalid "${readonly_email}"; then
+      echo >&2 "Warning: No valid readonly service account email could be resolved."
+    fi
+    # Fetch full IAM policy and service accounts
+    local sa_list_json=$(gcloud iam service-accounts list --project="${project_id}" --format="${output_format}" 2>/dev/null || echo "")
+
+    if [[ -z "${sa_list_json}" || "${sa_list_json}" == "[]" ]]; then
+        echo "No service accounts found for project: ${project_id}"
+        return 1
+    fi
+    # Identify all Terraform-managed service accounts by namespace match
+    local tf_accounts_json
+    tf_accounts_json=$(
+      jq --arg ws "${workspace}--" '
+        .[] | select(.email | startswith($ws))
+        ' <<< "${sa_list_json}" \
+      | jq -s .
+    )
+    if [[ "$(
+        jq 'length' <<< "${tf_accounts_json}"
+      )" -eq 0 ]]; then
+        echo "No Terraform-managed service accounts found for workspace: ${workspace}"
+        return 0
+    fi
+    # Inspect each and extract roles + profile
+    local result_json="[]"
+    for row in $(
+      jq -r '.[] | @base64' <<< "${tf_accounts_json}"
+    ); do
+        _jq() { echo "${row}" | base64 --decode | jq -r "${1}"; }
+        local email="$( _jq '.email' )"
+        local member="serviceAccount:${email}"
+        local roles_json=$(
+          jq -r --arg sa "${member}" '
+            .bindings[] | select(.members[]? == $sa) | { member: $sa, role: .role }
+            ' <<< "${iam_policy_json}" \
+          | jq -s 'group_by(.member) | map( { member: .[0].member, roles: map(.role) })'
+        )
+        local profile_json=$(
+          jq -r --arg sa "${email}" '
+            .[] | select( .email == $sa ) | { name, email, displayName, disabled, description }
+            ' <<< "${sa_list_json}"
+        )
+        # Append to result
+        result_json=$(
+          jq -n \
+             --argjson existing "${result_json}" \
+             --argjson profile "${profile_json}" \
+             --argjson roles "${roles_json}" '
+               $existing + [{
+                 member: $roles[0].member,
+                 profile: $profile,
+                 roles: $roles[0].roles
+               }]
+            '
+        );
+    done
+    echo -e "Terraform-Managed IAM Identities with Roles and Profiles:\n"
+    echo "${result_json}" | jq .
+    # Exports
+    export iam_terraform_identities_json="${result_json}"
+    # Backward compatible exports (only for first found identity)
+    export iam_scoped_member="$(
+      jq -r '.[0].member | sub("^serviceAccount:";"")' <<< "${result_json}"
+    )"
+    export iam_scoped_roles_json="$(
+      jq -r '[.[] | select(.member == "serviceAccount:'"${iam_scoped_member}"'")]' <<< "${result_json}"
+    )"
+    export iam_profile_json="$(
+      jq -r '.[] | select(.member == "serviceAccount:'"${iam_scoped_member}"'") | .profile' <<< "${result_json}"
+    )"
+    echo -e "\nExported:"
+    echo "  iam_terraform_identities_json (JSON)"
+    echo "  iam_scoped_member=\"${iam_scoped_member}\""
+    echo "  iam_scoped_roles_json (JSON)"
+    echo "  iam_profile_json (JSON)"
+    return 0
+}; alias iam-inspect='iam_inspect'
+
+function iam_custom_roles_inspect () {
+    echo -e "${liner}IAM Custom Roles Inspection (Full)\n"
+    # Step 1: Fetch all custom IAM roles defined in the project
+    local custom_roles_json
+    custom_roles_json=$(gcloud iam roles list \
+        --project="${project_id}" \
+        --filter="stage:GA AND name:projects/${project_id}/roles/" \
+        --format="${output_format}" 2>/dev/null || echo "")
+
+    if [[ -z "${custom_roles_json}" || "${custom_roles_json}" == "[]" ]]; then
+        echo "No custom IAM roles found in project: ${project_id}"
+        return 0
+    fi
+    echo -e "Custom IAM Roles Defined:\n"
+    echo "${custom_roles_json}" \
+         | jq -r '.[] | { name, title, description, stage }' \
+         | jq -s '.'
+    # Export full role definitions
+    export iam_custom_roles_json="${custom_roles_json}"
+    # Step 2: Match each custom role to bindings in the IAM policy
+    local role_usage_json
+    role_usage_json=$(
+      jq -n \
+         --argjson bindings "$(
+                     jq '.bindings' <<< "${iam_policy_json}"
+                   )" \
+         --argjson roles "${custom_roles_json}" '
+                   [ $roles[] as $r |
+                      {
+                        role: $r.name,
+                        title: $r.title,
+                        description: $r.description,
+                        used_by: (
+                            $bindings
+                            | map( select( .role == $r.name ) )
+                            | map( { members } )
+                            | flatten | unique
+                        )
+                      }
+                   ]
+                   | map( select( .used_by != [] ) )
+                   | sort_by(.role)
+                   '
+    )
+    echo -e "\nCustom IAM Roles in Use:\n"
+    echo "${role_usage_json}" | jq .
+    # Export usage bindings for custom roles
+    export iam_custom_roles_bindings_json="${role_usage_json}"
+    return 0
+}; alias iam-custom-roles='iam_custom_roles_inspect'
+
+function iam_policy_bindings_inspect () {
+    echo -e "${liner}IAM Policy Bindings Inspection (Scoped to Terraform-Managed Roles)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+      echo "Missing dependency: 'iam_terraform_identities_json'. Run iam_inspect first to populate Terraform-managed identities."
+      return 1
+    fi
+    local project_roles=()
+    mapfile -t project_roles < <(
+      jq -r '.[].roles[]' <<< "${iam_terraform_identities_json}" | sort -u
+    )
+    if [[ ${#project_roles[@]} -eq 0 ]]; then
+      echo "No roles defined for Terraform-managed identities."
+      return 0
+    fi
+    local scoped_members
+    scoped_members=$(
+      jq -r '.[].member' <<< "${iam_terraform_identities_json}" | sort -u
+    )
+    echo -e "Analyzing bindings for roles managed by Terraform...\n"
+    jq -n \
+       --argjson bindings "$(
+                   jq '.bindings' <<< "${iam_policy_json}"
+                 )" \
+       --argjson roles "$(
+                   printf '%s\n' "${project_roles[@]}" | jq -R . | jq -s .
+                 )" \
+       --argjson tf_members "$(
+                   printf '%s\n' ${scoped_members} | jq -R . | jq -s .
+                 )" '
+                 $roles as $rlist
+                 | $tf_members as $tflist
+                 | $bindings
+                 | map( select(.role as $role | $rlist | index($role) ) )
+                 | map({
+                     role: .role,
+                      managed: [.members[] | select( $tflist | index(.) )]
+                   })
+                 | sort_by(.role)
+                 ' \
+    | tee /tmp/iam_role_binding_analysis.json | jq .;
+    # echo -e "\nExported Role Binding Analysis (JSON): /tmp/iam_role_binding_analysis.json"
+
+    export iam_role_binding_analysis_json=$( cat /tmp/iam_role_binding_analysis.json )
+    return 0
+}; alias iam-policy-scan='iam_policy_bindings_inspect'
+
+function iam_permissions_inspect () {
+    echo -e "${liner}IAM Permissions per Terraform-Managed Role\n"
+
+    if [[ -z "${iam_scoped_roles_json:-}" ]]; then
+        echo "Missing required role data — run iam_inspect first."
+        return 1
+    fi
+
+    local unique_roles=()
+    mapfile -t unique_roles < <(
+      jq -r '.[].roles[]' <<< "${iam_scoped_roles_json}" | sort -u
+    )
+
+    if [[ "${#unique_roles[@]}" -eq 0 ]]; then
+        echo "No scoped roles found for Terraform-managed identities."
+        return 0
+    fi
+    local results=()
+    for role in "${unique_roles[@]}"; do
+        local permissions_json
+        permissions_json=$(gcloud iam roles describe "${role}" --format="${output_format}" 2>/dev/null || echo "")
+        if [[ -z "${permissions_json}" || "${permissions_json}" == "[]" ]]; then
+            continue
+        fi
+        local perms
+        perms=$(
+          jq -r '.includedPermissions // []' <<< "${permissions_json}"
+        )
+        results+=("$(
+          jq -n \
+             --arg role "${role}" \
+             --argjson permissions "${perms}" '{ role: $role, permissions: $permissions }'
+        )")
+    done
+    # Combine all results
+    iam_permissions_json=$(
+      jq -s '.' <<< "${results[*]}"
+    )
+    echo "${iam_permissions_json}" | jq .
+
+    export iam_permissions_json
+    return 0
+}; alias iam-perms='iam_permissions_inspect'
+
+function autoscaler_activity_inspect () {
+    echo -e "${liner}Autoscaler Activity Log Inspection\n"
+    local filter_pattern="${1:-autoscalers/}"  # Default if not provided
+    local autoscaler_log_raw
+    autoscaler_log_raw=$(
+      gcloud logging read \
+             "resource.type=\"gce_autoscaler\" AND protoPayload.resourceName:\"${filter_pattern}\"" \
+             --project="${project_id}" \
+             --limit=1000 \
+             --format=json 2>/dev/null || echo "[]"
+    )
+    if [[ -z "${autoscaler_log_raw}" || "${autoscaler_log_raw}" == "[]" ]]; then
+        echo "No autoscaler logs found matching: ${filter_pattern}"
+        return 0
+    fi
+    export autoscaler_activity_log=$( jq -r '
+      map( select( type == "object" and
+                   has("protoPayload") and
+                   .protoPayload.resourceName != null
+                 )
+      )
+      | sort_by(.timestamp) | reverse
+      | .[0]' <<< "${autoscaler_log_raw}"
+    )
+    if [[ -z "${autoscaler_activity_log}" || "${autoscaler_activity_log}" == "null" ]]; then
+        echo "No valid autoscaler activity entries found."
+        return 0
+    fi
+
+    # Optional: comment this block out if verbose output isn't needed
+    # echo -e "\nRaw Autoscaler Activity Log:"
+    # jq <<< "${autoscaler_log_raw}"
+
+    echo -e "\nMost Recent Autoscaler Activity Log:"
+    jq <<< "${autoscaler_activity_log}"
+    export autoscaler_activity_log
+    return 0
+}; alias autoscaler-logs='autoscaler_activity_inspect'
+
+function iam_activity_inspect () {
+    echo -e "${liner}IAM Activity Logs (Terraform-Managed Identities)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+        echo "Missing dependency: run iam_inspect first."
+        return 1
+    fi
+    # Display scoped members
+    local emails
+    mapfile -t emails < <(
+      jq -r '.[].member' <<< "${iam_terraform_identities_json}" \
+      | sed 's/^serviceAccount://g'
+    )
+    echo "Querying GCP logs for the following IAM members:"
+    printf '%s\n' "${emails[@]}"
+    echo
+    local gcloud_log_data
+    export gcloud_log_data=$(
+      gcloud logging read \
+        'protoPayload.authenticationInfo.principalEmail:*' \
+        --project="${project_id}" \
+        --limit=1000 \
+        --format=json 2>/dev/null || echo "[]"
+    );
+    # Call autoscaler inspection (filter can be customized later)
+    autoscaler_activity_inspect "autoscalers/"
+}; alias iam-logs='iam_activity_inspect'
+
+function iam_policy_diff_inspect () {
+    echo -e "${liner}IAM Role Assignments Diff (Terraform vs. GCP)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+        echo "Missing Terraform-managed identities — run: iam_inspect"
+        return 1
+    fi
+    # Extract Terraform-managed member roles
+    iam_policy_diff_json=$(
+      jq -n \
+         --argjson tf "${iam_terraform_identities_json}" \
+         --argjson gcp "$(
+                     jq '[.bindings[] | {role, members}]' <<< "${iam_policy_json}"
+                   )" '
+                   $tf | map( . as $entry | {
+                       member: $entry.member,
+                       tf_roles: ($entry.roles // []),
+                       gcp_roles: ( $gcp
+                         | map(select(.members | index($entry.member)))
+                         | map(.role)
+                       ),
+                       missing_in_gcp: (
+                         ( $entry.roles // [] ) -
+                         ( $gcp | map( select( .members | index($entry.member) ) ) | map(.role) )
+                       ),
+                       extra_in_gcp: (
+                         ( $gcp | map( select( .members | index($entry.member) ) ) | map(.role) ) -
+                         ( $entry.roles // [] )
+                       )
+                     }
+                   )
+                   '
+    )
+    echo "${iam_policy_diff_json}" | jq .
+    export iam_policy_diff_json
+    return 0
+}; alias iam-diff='iam_policy_diff_inspect';
+
+function iam_unbound_identities_inspect () {
+    echo -e "${liner}IAM Unbound Identities (Terraform-Managed Without GCP Role Bindings)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+        echo "Missing Terraform-managed IAM identities. Run: iam_inspect"
+        return 1
+    fi
+    unbound_identities_json=$(
+      jq -n \
+        --argjson identities "${iam_terraform_identities_json}" \
+        --argjson bindings "$(
+                    jq '.bindings' <<< "${iam_policy_json}"
+                  )" \
+                  'def gcp_members:
+                     $bindings | map(.members[]) | unique;
+                   $identities
+                   | map( select(.member as $m | gcp_members | index($m) | not) )'
+    )
+    echo "${unbound_identities_json}" | jq .
+    export unbound_identities_json
+}; alias iam-unbound='iam_unbound_identities_inspect'
+
+function iam_key_origin_inspect () {
+    echo -e "${liner}IAM Key Origin Inspection (Terraform-Managed Service Accounts)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+        echo "Missing Terraform-managed IAM identity data. Please run: iam_inspect"
+        return 1
+    fi
+    local service_accounts
+    service_accounts=($(
+      jq -r '.[].member' <<< "${iam_terraform_identities_json}" \
+      | sed 's/^serviceAccount://g'
+    ))
+
+    if [[ ${#service_accounts[@]} -eq 0 ]]; then
+        echo "No Terraform-managed service accounts found."
+        return 0
+    fi
+
+    local all_keys_json="[]"
+
+    for sa in "${service_accounts[@]}"; do
+        local key_json
+        key_json=$(gcloud iam service-accounts keys list \
+            --iam-account="${sa}" \
+            --project="${project_id}" \
+            --format=json 2>/dev/null || echo "[]")
+        if [[ "${key_json}" == "[]" ]]; then
+            continue
+        fi
+        local enriched_keys
+        enriched_keys=$(
+          jq --arg sa "${sa}" '
+            map({
+              service_account: $sa,
+              name,
+              key_type: .keyType,
+              valid_after: .validAfterTime,
+              valid_before: .validBeforeTime,
+              disabled: .disabled
+            })
+            ' <<< "${key_json}"
+        )
+        all_keys_json=$(
+          jq -s 'add' <( echo "${all_keys_json}" ) <( echo "${enriched_keys}" )
+        )
+    done
+    echo "All Keys (User & System Managed):"
+    echo "${all_keys_json}" | jq .
+    echo -e "\nUser-Managed Keys Detected (Active Only):"
+    user_keys_json=$(
+      jq '
+         map(
+           select(
+             .key_type == "USER_MANAGED" and
+             ( .disabled == false or .disabled == null )
+           )
+         ) | sort_by(.service_account)
+         ' <<< "${all_keys_json}"
+    )
+    echo "${user_keys_json}" | jq .
+    export iam_all_keys_json="${all_keys_json}"
+    export iam_user_keys_json="${user_keys_json}"
+    return 0
+}; alias iam-key-origins='iam_key_origin_inspect'
+
+function iam_key_expiration_inspect () {
+    echo -e "${liner}IAM Key Expiration Inspection (Terraform-Managed Service Accounts)\n"
+    if [[ -z "${iam_terraform_identities_json:-}" ]]; then
+        echo "Missing identity metadata. Run: iam_inspect first."
+        return 1
+    fi
+    local threshold_days=30
+    local now_ts
+    now_ts=$(date -u +%s)
+    # Portable cutoff timestamp (30 days from now)
+    local cutoff_ts
+    cutoff_ts=$(python3 -c "import time; print(int(time.time() + (${threshold_days} * 86400)))")
+    # Fetch all key data (from active Terraform-managed identities)
+    local expiring_keys_json=$(
+      jq -c '.[]
+        | select(.profile.disabled == false)
+        | .profile.email ' <<< "${iam_terraform_identities_json}" \
+      | while read -r email; do
+          gcloud iam service-accounts keys list \
+            --iam-account="${email}" \
+            --project="${project_id}" \
+            --format="${output_format}" 2>/dev/null || echo "[]"
+        done \
+      | jq -s 'add'
+    )
+    # Flag keys near expiration or expired
+    local flagged_keys_json=$(
+      jq --arg cutoff "$cutoff_ts" --arg now "$now_ts" '
+        map(select(.validBeforeTime != null))
+        | map({
+            name,
+            key_type: .keyType,
+            service_account: .name | split("/")[3],
+            valid_before: .validBeforeTime,
+            status: (
+              ( ( .validBeforeTime | sub("Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime ) < ($now | tonumber) )
+              as $expired
+              | ( ( .validBeforeTime | sub("Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime ) < ($cutoff | tonumber) )
+              as $soon
+              | if $expired then "EXPIRED"
+                elif $soon then "EXPIRING_SOON"
+                else "VALID"
+                end
+          )}
+        )
+        | map( select( .status != "VALID" ) )
+        ' <<< "${expiring_keys_json}"
+    )
+    if [[ -z "${flagged_keys_json}" || "${flagged_keys_json}" == "[]" ]]; then
+        echo "No expired or expiring keys found (within ${threshold_days} days)."
+    else
+        echo "Expired or Expiring IAM Keys (Threshold: ${threshold_days} days):"
+        echo "${flagged_keys_json}" | jq .
+    fi
+    export iam_expiring_keys_json="${flagged_keys_json}"
+}; alias iam-keys-expiring='iam_key_expiration_inspect'
+
+#-------------------------------------------------------------------------------
+
+export iam_policy_json=$(
+  gcloud projects get-iam-policy "${project_id}" --format="${output_format}" 2>/dev/null || echo ""
+)
+if [[ -z "${iam_policy_json}" || "${iam_policy_json}" == "[]" ]]; then
+    echo "No IAM policy data found for project: ${project_id}"
+    return 0
+fi
+
+#-------------------------------------------------------------------------------
+
+forwarding_rules;
+target_http_proxies;
+url_maps;
+backend_services;
+health_status;
+health_checks;
+webserver_response;
+autoscaler_inspect;
+psa_inspect;
+
+instance_groups;
+
+#-------------------------------------------------------------------------------
+
+iam_inspect;
+
+iam_custom_roles_inspect;
+iam_policy_bindings_inspect;
+# iam_permissions_inspect;
+iam_activity_inspect;
+
+iam_policy_diff_inspect;
+iam_unbound_identities_inspect;
+iam_key_origin_inspect;
+iam_key_expiration_inspect;
+
+echo -e "\nCompleted the Application Load Balancer inspection.\n";
+
+#-------------------------------------------------------------------------------
+
+# Infrastructure Health Check Summary
+# Component	Status
+# Forwarding Rule	Resolved, healthy
+# Target HTTP Proxy	Properly mapped
+# URL Map	Linked and valid
+# Backend Service	Up, serving requests
+# Health Check	Running @ 5s interval, passing
+# Instance Group	1 instance, healthy
+# Web Server	Apache, returns 200 OK
+# Autoscaler	Active (1–3 replicas), CPU target 0.6
+# PSA & VPC Peering	Correctly configured
+# IAM Profile (Terraform-managed)	Valid, roles match exactly
+# IAM Key Check	No expired or unmanaged keys
+# IAM Binding Diff	Zero drift between Terraform & GCP
+# IAM Activity Logs	Confirmed provisioning via Terraform
+
+# # Completed
+# iam_inspect – Unified profile & role inspection (scoped & exported)
+# iam_custom_roles_inspect – Full custom roles and bindings
+# iam_bindings_inspect – Bindings scoped to Terraform-managed identities
+# iam_diff_inspect – Terraform vs. GCP role assignment diff
+# iam_unbound_inspect – Unbound Terraform-managed identities
+# iam_key_origin_inspect – Key listing and classification (user vs system)
+# iam_key_expiry_inspect – Expiration validation on all keys
+
+# # Pending
+# iam_key_permissions_inspect – Validate that user-managed keys don’t have risky permissions
+# iam_policy_inspect – Deep inspection of the IAM policy tree for misconfigurations or legacy bindings
+# iam_permissions_inspect – Flatten permissions from roles to identify over-permissioned identities
+# iam_constraints_inspect – Ensure org/policy constraints (e.g., disable legacy auth, service account key restrictions)
+# iam_audit_config_inspect – Review audit logging coverage and gaps for all services
+
+# IAM Features Remaining (after iam_key_permissions_inspect)
+# 1. iam_policy_inspect
+#
+# Inspects the full project IAM policy tree.
+# Flags any suspicious bindings:
+# Wildcard "allUsers" or "allAuthenticatedUsers"
+# Over-permissioned roles like roles/owner
+# Deprecated roles
+# Bindings without conditions
+# 2. iam_permissions_inspect
+#
+# Flattens roles into individual permissions.
+# Detects:
+# Permissions not needed by the identity
+# Identities with excessive power (e.g., resourcemanager.projects.delete)
+# Role overlap or redundancy
+# 3. iam_constraints_inspect
+#
+# Checks for enforced organization policies:
+# Restrict service account key creation
+# Require uniform bucket-level access
+# Disable external sharing
+# Ensures required constraints are enforced, not just defined.
+# 4. iam_audit_config_inspect
+#
+# Validates auditConfigs in project IAM policy:
+# Which services are being logged?
+# Are data reads/writes captured?
+# Are there exemptions?

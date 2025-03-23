@@ -1,0 +1,29 @@
+$ gcloud compute firewall-rules describe allow-http-https --format=json ;
+
+{
+  "allowed": [
+    {
+      "IPProtocol": "tcp",
+      "ports": [
+        "80",
+        "443"
+      ]
+    }
+  ],
+  "creationTimestamp": "2025-03-24T12:15:53.771-07:00",
+  "description": "",
+  "direction": "INGRESS",
+  "disabled": false,
+  "id": "1234567890123456789",
+  "kind": "compute#firewall",
+  "logConfig": {
+    "enable": false
+  },
+  "name": "allow-http-https",
+  "network": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/networks/example-vpc",
+  "priority": 1000,
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/firewalls/allow-http-https",
+  "sourceRanges": [
+    "0.0.0.0/0"
+  ]
+}

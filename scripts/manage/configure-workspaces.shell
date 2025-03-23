@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+
+## File: ./scripts/manage/configure-terraform.shell
+# __version__ = "0.1.0"
+
+# Description:
+
+# Features:
+
+# Expected Behavior:
+
+# Dependencies:
+
+# Usage:
+# To run the script with various actions:
+# > ./scripts/manage/configure-workspaces.shell \
+#   --project='./project.json'
+#   --workspace='dev'
+
+# Additional flags:
+#   --dry-run   : Perform a dry run without executing destructive actions
+#   --verbose   : Enable step-by-step command logging
+#   --debug     : Enable shell tracing (`set -x`) for full execution insight
+#   --help      : Print help and usage information
+
+set -eou pipefail ;
+# set -x ;
+
+#------------------------------------------------------------------------------#
+
+function display_help () {
+    local script_filename="$( basename ${script_name} )";
+    echo -e "
+    Usage: ${script_filename} [OPTIONS]
+
+    Options:
+    -c, --create            Create Terraform workspaces: dev, staging, prod, ...
+    -j, --project=PATH      Path to the project configuration file (default: ./project.json)
+    -w, --workspace         Terraform target workspace: dev, staging, prod, ...
+
+    --help                  Show this help message and exit
+    --dry-run               Print actions without executing them
+    --verbose               Enable verbose output
+    --debug                 Enable debug mode with trace output
+
+    Examples:
+    ${script_filename} --create --workspace='dev' ;
+    ";
+    return 0;
+  }; alias display-help='display_help';
+
+#------------------------------------------------------------------------------#
+
+function create_workspaces () {
+    if [[ -z "${1:-}" ]]; then
+            local project_config="./project.json";
+      else  local project_config="${1}";
+    fi ;
+    if [[ ! -f "${project_config:-}" ]]; then
+      echo -e "Warning: Invalid Project Configuration!" ;
+      exit 1 ;
+    fi ;
+    if [[ -z "${2:-}" ]]; then
+            local target_workspace="$( jq -r '.defaults.target' "${project_config}" )" ;
+      else  local target_workspace="${2}" ;
+    fi ;
+    declare -a workspace_keys=($(
+      jq -r '.configs.targets.sets | keys[]' "${project_config}"
+    ));
+    # echo -e "Detected environments: \n${workspace_keys}\n";
+    echo -e; for ws in ${workspace_keys[@]}; do
+      local workspace_output="$( terraform workspace list 2>/dev/null )";
+      if echo -e "${workspace_output}" | grep -qE "^[*] +${ws}$"; then
+              echo -e "Workspace '${ws}' is already active.";
+        elif  echo -e "${workspace_output}" | sed 's/^[* ]*//' | grep -q "^${ws}$"; then
+              echo -e "Workspace '${ws}' already exists.";
+        else  echo -e "Creating workspace: ${ws}";
+              terraform workspace new "${ws}";
+      fi;
+    done;
+    unset TF_WORKSPACE ;
+    terraform workspace select "${target_workspace}" ;
+    # if [[ -z "${TF_WORKSPACE:-}" ]]; then
+    #   echo -e "TF_WORKSPACE=${target_workspace}" >> "$GITHUB_ENV" ;
+    # fi ;
+    echo -e "\nCurrent Terraform Workspace: $( terraform workspace show )\n" ;
+    return 0 ;
+}; alias create-workspaces='create_workspaces' ;
+
+#------------------------------------------------------------------------------#
+
+function main () {
+    ## tracking_process ${FUNCNAME} "${@}";
+    oIFS="${IFS}";
+    for xitem in "${@}"; do
+      IFS='=' read -r key value <<< "$(
+        echo -e "${xitem}" | sed -e '1s|^\(-\)\{1,\}||'
+      )"; #echo -e "\nxitem: '${xitem}'\nkey: '${key}'\t->\tvalue: '${value}'";
+      [[ $key =~ ^(create|c)$ ]] && local action_create=true;
+      [[ $key =~ ^(project|j)$ ]] && local project_filepath="${value}";
+      [[ $key =~ ^(workspace|w)$ ]] && local target_workspace="${value}";
+      #### ---------------------------------------------------------------------
+      [[ $key == "help" ]] && local script_helper=true;
+      [[ $key == "dry-run" ]] && local dry_run=true;
+      [[ $key == "verbose" ]] && local verbose=true
+      [[ $key == "debug" ]] && local debug=true
+    done; IFS="${oIFS}";
+    #### -----------------------------------------------------------------------
+    if [[ ${script_helper:-} == true ]]; then
+      display_help;
+      exit 0;
+    fi;
+    #### -----------------------------------------------------------------------
+    [[ -z ${dry_run:-} ]] && local dry_run=false;
+    [[ -z ${debug:-} ]] && local debug=false;
+    [[ -z ${verbose:-} ]] && local verbose=false;
+    #### -----------------------------------------------------------------------
+    [[ -z ${project_filepath:-} ]] && local project_filepath="./project.json";
+    if [[ ! -f "${project_filepath}" ]]; then
+      echo "Project file not found: ${project_filepath}";
+      exit 1;
+    fi;
+    [[ -z ${target_workspace:-} ]] && local target_workspace="$(
+      jq -r '.defaults.target' "${project_filepath}"
+    )";
+    if [[ ${action_create:-} == true ]]; then
+            # echo -e "\nAction (Init): ${action_init}\n";
+            create_workspaces "${project_filepath}" \
+                              "${target_workspace}" ;
+      else  local action_create=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    return 0;
+}; alias configure-workspaces='main';
+
+export script_name="${0}";
+if [[ ${#@} -eq 0 ]]; then
+        main --help ;
+  else  main "${@}"; echo -e "Done.\n";
+fi;

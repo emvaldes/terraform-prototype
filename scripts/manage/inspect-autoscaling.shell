@@ -1,0 +1,268 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/inspect-autoscaling.shell
+# Version: 0.1.0
+# Description: This script performs a stress test on a load balancer and inspects the autoscaling behavior of a managed instance group (MIG) in GCP.
+
+set -eou pipefail ;
+# set -x ;
+
+# -----------------------------------------------------------------------------#
+
+# --- Configuration ---
+
+config_prefix="$(cd "${1:-.}" && pwd)"
+
+workspace="$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform workspace show 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)" ;
+echo -e "\n[Inspecting Autoscaling in Workspace: ${workspace}]"
+
+targets_path="${config_prefix}/configs/targets/${workspace}.json"
+echo -e "[Target Configuration: ${targets_path}]"
+ls -l "${targets_path}"
+cat "${targets_path}"
+
+policies_path="${config_prefix}/configs/policies.json"
+
+# --- Validate Files ---
+
+if [[ ! -f "${targets_path}" ]]; then
+        echo "Error: Target configuration not found: ${targets_path}" >&2
+        exit 1
+  else  echo -e "[Target Configuration: ${targets_path}]"
+fi
+
+if [[ ! -f "${policies_path}" ]]; then
+        echo "Error: Policies file not found: ${policies_path}" >&2
+        exit 2
+  else  echo -e "[Policies Configuration: ${policies_path}]"
+        ls -l "${policies_path}"
+fi
+
+# --- Extract Stressload Settings ---
+
+stress_key="$(jq -r '.policies.stressload' "${targets_path}")"
+echo -e "[Stressload Key: ${stress_key}]"
+
+stress_json="$(
+  jq -r --arg key "${stress_key}" '.stressload.levels[$key]' "${policies_path}"
+)"
+if [[ "${stress_json}" == "null" || -z "${stress_json}" ]]; then
+        echo >&2 "Error: Stress profile '${stress_key}' not found in policies."
+        exit 1
+  else  echo -e "[Stressload Configuration: ${stress_json}]"
+fi
+
+duration_total=$(jq -r '.duration' <<< "${stress_json}")
+echo -e "[Stressload Duration: ${duration_total}]"
+
+concurrency=$(jq -r '.threads' <<< "${stress_json}")
+echo -e "[Stressload Concurrency: ${concurrency}]"
+
+interval=$(jq -r '.interval' <<< "${stress_json}")
+echo -e "[Stressload Interval: ${interval}]"
+
+requests=$(jq -r '.requests' <<< "${stress_json}")
+if [[ -z "${duration_total}" || -z "${concurrency}" || -z "${interval}" || -z "${requests}" ]]; then
+        echo >&2 "Error: One or more stress test parameters are missing or invalid"
+        exit 1
+  else  echo -e "[Stressload Requests: ${requests}]"
+fi
+
+# --- Phase Setup ---
+
+phase_duration=15
+echo -e "[Phase Duration: ${phase_duration}]"
+
+lb_ip="$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform output -raw load_balancer_ip 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)"
+if [[ -z "${lb_ip}" ]]; then
+        echo >&2 "Error: terraform output 'load_balancer_ip' returned empty"
+        exit 1
+  else  echo -e "[Load Balancer IP: ${lb_ip}]"
+fi
+
+target_url="http://${lb_ip}"
+if [[ -z "${target_url}" ]]; then
+        echo >&2 "Error: Target URL could not be constructed from load balancer IP"
+        exit 1
+  else  echo -e "[Target URL: ${target_url}]"
+fi
+
+# --- Terraform Metadata ---
+
+gcp_project_id="$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform output -raw project_id 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)"
+echo -e "[GCP Project ID: ${gcp_project_id}]"
+
+gcp_region="$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform output -raw region 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)"
+if [[ -z "${gcp_project_id}" || -z "${gcp_region}" ]]; then
+        echo >&2 "Error: Terraform output 'project_id' or 'region' is missing"
+        exit 1
+  else  echo -e "[GCP Region: ${gcp_region}]"
+fi
+
+group=$(
+  unset TF_LOG && TF_IN_AUTOMATION=1 \
+  terraform output -raw compute_web_servers_group 2>/dev/null \
+  | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+  | awk -F'::debug::' '{print $1}'
+)
+if [[ -z "${group}" ]]; then
+        echo >&2 "Error: terraform output 'compute_web_servers_group' returned empty"
+        exit 1
+  else  echo -e "[Managed Instance Group: ${group}]"
+fi
+
+mig_name="$(echo "${group}" | awk -F/ '{print $NF}')"
+if [[ -z "${mig_name}" ]]; then
+        echo >&2 "Error: Failed to extract MIG name from group output"
+        exit 1
+  else  echo -e "[MIG Name: ${mig_name}]"
+fi
+
+autoscaling_key="$(jq -r '.policies.autoscaling' "${targets_path}")"
+echo -e "[Autoscaling Key: ${autoscaling_key}]"
+
+autoscaling_config="$(jq -r ".autoscaling.profiles[\"${autoscaling_key}\"]" "${policies_path}")"
+if [[ "${autoscaling_config}" == "null" || -z "${autoscaling_config}" ]]; then
+        echo >&2 "Error: Autoscaling profile '${autoscaling_key}' not found in policies."
+        exit 1
+  else  echo -e "[Autoscaling Configuration: ${autoscaling_config}]"
+fi
+
+autoscaling_min=$(jq -r '.min' <<< "${autoscaling_config}")
+if [[ -z "${autoscaling_min}" ]]; then
+        echo >&2 "Error: Autoscaling minimum not defined in profile '${autoscaling_key}'"
+        exit 1
+  else  echo -e "[Autoscaling Minimum: ${autoscaling_min}]"
+fi
+
+# --- Function to Check Instance Count ---
+
+function print_instance_count() {
+  echo -e "\n[Inspecting Instances in MIG: ${mig_name}]"
+  instance_data=$(gcloud compute instance-groups managed list-instances "${mig_name}" \
+                    --region="${gcp_region}" \
+                    --project="${gcp_project_id}" \
+                    --format="json")
+  instance_count=$(jq 'length' <<< "${instance_data}")
+  echo "Current instances running: ${instance_count}"
+}
+
+# --- Function to Display Active Instances ---
+
+function print_active_instances() {
+  gcloud compute instance-groups managed list-instances \
+    "${mig_name}" \
+    --region="${gcp_region}" \
+    --project="${gcp_project_id}" \
+    --format="json" \
+  | jq .
+}
+
+# --- Reset Autoscaler to Minimum ---
+
+function reset_autoscaler() {
+  echo -e "\n[Resetting MIG to minimum replica count: ${autoscaling_min}]"
+  gcloud compute instance-groups managed resize "${mig_name}" \
+    --region="${gcp_region}" \
+    --size="${autoscaling_min}" \
+    --project="${gcp_project_id}" \
+    --quiet
+  echo "Resize command issued. MIG will return to baseline size."
+}
+
+# --- Stressload Phases ---
+
+function run_phase() {
+
+  local name="$1"
+  local duration="$2"
+  local threads="$3"
+  echo -e "[Phase: ${name}] Duration: ${duration}s | Concurrency: ${threads}"
+
+  print_instance_count
+  print_active_instances
+
+  # hey -z "${duration}s" -c "${threads}" "${target_url}"
+  hey -z "${duration}s" -c "${threads}" "${target_url}" 2> >(grep -v -E 'Get "http.*":' >&2 || true)
+
+}
+
+if ! command -v hey &>/dev/null; then
+  echo >&2 "Error: 'hey' is not installed or not in PATH"
+  exit 1
+fi
+echo -e "Running stress test against: ${target_url}"
+
+echo -e "Stress Level: ${stress_key} | Threads: ${concurrency} | Duration: ${duration_total}s | Interval: ${interval}s | Requests: ${requests}"
+
+run_phase "Burst Load" "${phase_duration}" $((concurrency * 2))
+run_phase "Sustained Pressure" "${phase_duration}" "${concurrency}"
+run_phase "Cooldown" "${phase_duration}" $((concurrency / 2))
+run_phase "Recovery" "${phase_duration}" $((concurrency / 4))
+
+# [Resetting MIG to minimum replica count: 1]
+# ERROR: (gcloud.compute.instance-groups.managed.resize) Could not fetch resource:
+#  - Resizing of autoscaled regional managed instance groups is not allowed. If you want to manually adjust target size remove the autoscaler or set autoscaling policy mode to OFF.
+#
+# reset_autoscaler
+
+echo -e "Stressload test complete."
+
+## --- Resolve Target URL ---
+#
+# load_balancer_ip="$(
+#   unset TF_LOG && terraform output -raw load_balancer_ip 2>/dev/null \
+#   | awk -F'::' '{print $1}' \
+#   | grep -Ev "^Warning: .*$|^.*terraform-bin\ output\ .*$"
+# )"
+# target_url="http://${load_balancer_ip}"
+# echo -e "Load Balancer IP: '${target_url}'"
+# echo -e "Load-balancer address: ${{ env.LOADBALANCER_ADDRESS }}" ;
+#
+# # --- Stressload Parameters ---
+# phase_duration=15
+#
+# burst_concurrency=80
+# sustained_concurrency=40
+# cooldown_concurrency=20
+# recovery_concurrency=10
+#
+# # --- Stress Function ---
+# function run_phase () {
+#   local name="$1"
+#   local duration="$2"
+#   local threads="$3"
+#   echo -e "Phase: ${name} - Duration: ${duration}s | Concurrency: ${threads}"
+#
+#   hey -z "${duration}s" -c "${threads}" "${target_url}" 2> >(grep -v -E 'Get "http.*":' >&2 || true)
+# }
+#
+# # --- Run Phases ---
+# echo -e "Running Simplified Stressload Test"
+#
+# run_phase "Burst Load"         "${phase_duration}" "${burst_concurrency}"
+# run_phase "Sustained Pressure" "${phase_duration}" "${sustained_concurrency}"
+# run_phase "Cooldown"           "${phase_duration}" "${cooldown_concurrency}"
+# run_phase "Recovery"           "${phase_duration}" "${recovery_concurrency}"
+#
+# echo -e "Stressload test complete."

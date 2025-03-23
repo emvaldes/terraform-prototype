@@ -1,0 +1,13 @@
+{
+  "target_url": "http://34.54.76.176",
+  "project_id": "devops-workflows-000",
+  "region": "us-west2",
+  "mig_name": "dev--web-servers-group",
+  "autoscaler_name": "dev--web-autoscaling",
+  "log_level": "low",
+  "stress_duration_seconds": 60,
+  "stress_concurrency": 250,
+  "request_sleep_interval": 0.04,
+  "autoscaler_min_replicas": 1,
+  "autoscaler_max_replicas": 2
+}

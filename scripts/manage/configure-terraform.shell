@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+
+## File: ./scripts/manage/configure-terraform.shell
+# __version__ = "0.1.0"
+
+# Description:
+
+# Features:
+
+# Expected Behavior:
+
+# Dependencies:
+
+# Usage:
+# To run the script with various actions:
+# > ./scripts/manage/configure-terraform.shell \
+#   --init \
+#   --policies='./configs/policies.json' \
+#   --project='./project.json'
+
+# Additional flags:
+#   --dry-run   : Perform a dry run without executing destructive actions
+#   --verbose   : Enable step-by-step command logging
+#   --debug     : Enable shell tracing (`set -x`) for full execution insight
+#   --help      : Print help and usage information
+
+set -eou pipefail ;
+# set -x ;
+
+#------------------------------------------------------------------------------#
+
+function display_help () {
+    local script_filename="$( basename ${script_name} )";
+    echo -e "
+    Usage: ${script_filename} [OPTIONS]
+
+    Options:
+    -i, --init              Initialize Terraform Engine & Modules
+    -p, --policies=PATH     Path to the policies configuration file (default: ./configs/policies.json)
+    -j, --project=PATH      Path to the project configuration file (default: ./project.json)
+    -w, --workspace         Terraform target workspace: dev, staging, prod
+
+    --help                  Show this help message and exit
+    --dry-run               Print actions without executing them
+    --verbose               Enable verbose output
+    --debug                 Enable debug mode with trace output
+
+    Examples:
+    ${script_filename} --init --workspace='dev' ;
+    ";
+    return 0;
+  }; alias display-help='display_help';
+
+#------------------------------------------------------------------------------#
+
+function initialize_terraform () {
+    if [[ -z "${1:-}" ]]; then
+            local project_config="./project.json";
+      else  local project_config="${1}";
+    fi ;
+    if [[ ! -f "${project_config:-}" ]]; then
+      echo -e "Warning: Invalid Project Configuration!" ;
+      exit 1 ;
+    fi ;
+    if [[ -z "${2:-}" ]]; then
+            local policies_config="./configs/policies.json" ;
+      else  local policies_config="${2}";
+    fi ;
+    if [[ ! -f "${policies_config:-}" ]]; then
+      echo -e "Warning: Invalid Policies Configuration!" ;
+      exit 1 ;
+    fi ;
+    if [[ -z "${3:-}" ]]; then
+            local workspace=$(
+              jq -r '.defaults.target' "${project_config}"
+            );
+      else  local workspace="${3}";
+    fi ;
+    local project_name=$( gcloud config get-value project );  # Get the project name dynamically from GCP CLI
+    local storage=$( jq -r '.storage' "${policies_config}" );
+    export terraform_bucket_name="$(
+      echo -e "${storage}" \
+         | jq -r --arg env "${workspace}" --arg project "${project_name}" \
+           'if .bucket.rbac == true then "\($env)--\(.bucket.name)--\($project)"
+            else .bucket.name end'
+    )"; echo -e "Terraform Bucket name:   ${terraform_bucket_name}";
+    ## e.g.: dev--terraform-prototype--devops-workflows-000
+    export terraform_bucket_prefix="$(
+      jq -r '.bucket.prefix' <<< ${storage}
+    )"; echo -e "Terraform Bucket prefix: ${terraform_bucket_prefix}";
+    echo -e;
+    ## e.g.: terraform/state
+    terraform init \
+              -backend-config="bucket=${terraform_bucket_name}" \
+              -backend-config="prefix=${terraform_bucket_prefix}";
+    if [[ -f .terraform/terraform.tfstate ]]; then
+      jq -r . .terraform/terraform.tfstate;
+      # jq -r '.backend.config.bucket' .terraform/terraform.tfstate
+      # e.g.: dev--terraform-prototype--devops-workflows-000
+    fi ;
+    echo -e ;
+    gsutil ls gs://${terraform_bucket_name}/terraform/state/;
+    # e.g.: gs://dev--terraform-prototype--devops-workflows-000/terraform/state/default.tfstate;
+    ## Initializing Terraform Workspaces (default: ./projects.json->defaults.target)
+    return 0;
+}; alias initialize-terraform='initialize_terraform' ;
+
+#------------------------------------------------------------------------------#
+
+function main () {
+    ## tracking_process ${FUNCNAME} "${@}";
+    oIFS="${IFS}";
+    for xitem in "${@}"; do
+      IFS='=' read -r key value <<< "$(
+        echo -e "${xitem}" | sed -e '1s|^\(-\)\{1,\}||'
+      )"; #echo -e "\nxitem: '${xitem}'\nkey: '${key}'\t->\tvalue: '${value}'";
+      [[ $key =~ ^(init|i)$ ]] && local action_init=true;
+      [[ $key =~ ^(policies|p)$ ]] && local policies_filepath="${value}";
+      [[ $key =~ ^(project|j)$ ]] && local project_filepath="${value}";
+      [[ $key =~ ^(workspace|w)$ ]] && local target_workspace="${value}";
+      #### ---------------------------------------------------------------------
+      [[ $key == "help" ]] && local script_helper=true;
+      [[ $key == "dry-run" ]] && local dry_run=true;
+      [[ $key == "verbose" ]] && local verbose=true
+      [[ $key == "debug" ]] && local debug=true
+    done; IFS="${oIFS}";
+    #### -----------------------------------------------------------------------
+    if [[ ${script_helper:-} == true ]]; then
+      display_help;
+      exit 0;
+    fi;
+    #### -----------------------------------------------------------------------
+    [[ -z ${dry_run:-} ]] && local dry_run=false;
+    [[ -z ${debug:-} ]] && local debug=false;
+    [[ -z ${verbose:-} ]] && local verbose=false;
+    #### -----------------------------------------------------------------------
+    [[ -z ${project_filepath:-} ]] && local project_filepath="./project.json";
+    if [[ ! -f "${project_filepath}" ]]; then
+      echo "Project file not found: ${project_filepath}";
+      exit 1;
+    fi;
+    [[ -z ${policies_filepath:-} ]] && local policies_filepath="./configs/policies.json";
+    if [[ ! -f "${policies_filepath}" ]]; then
+      echo "Policies file not found: ${policies_filepath}";
+      exit 2;
+    fi;
+    [[ -z ${target_workspace:-} ]] && local target_workspace="$(
+      jq -r '.defaults.target' "${project_filepath}"
+    )";
+    if [[ ${action_init:-} == true ]]; then
+            # echo -e "\nAction (Init): ${action_init}\n";
+            initialize_terraform "${project_filepath}" \
+                                 "${policies_filepath}" \
+                                 "${target_workspace}";
+      else  local action_init=false;
+    fi;
+    #### -----------------------------------------------------------------------
+    return 0;
+}; alias configure-terraform='main';
+
+export script_name="${0}";
+if [[ ${#@} -eq 0 ]]; then
+        main --help ;
+  else  echo -e; main "${@}"; echo -e "Done.\n";
+fi;

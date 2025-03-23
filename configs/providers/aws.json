@@ -1,0 +1,16 @@
+{
+    "provider": "aws",
+    "project": null,
+    "credentials": "",
+    "regions": {
+        "west": "us-west-1",
+        "central": "us-central-1",
+        "east": "us-east-1"
+    },
+    "types": {
+        "micro": "t2.micro",
+        "medium": "t3.medium",
+        "standard": "m5.large"
+    },
+    "services": []
+}

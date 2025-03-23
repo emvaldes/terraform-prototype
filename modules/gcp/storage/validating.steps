@@ -1,0 +1,62 @@
+### 1. **Test the IAM Bindings via Terraform Console**:
+   Since you're using `google_storage_bucket_iam_binding` and groups for IAM bindings, you can start by validating the IAM bindings via `terraform console`. Here's what you can do:
+
+   - **Start a Terraform Console**:
+     ```bash
+     terraform console
+     ```
+
+   - **Verify the group credentials**:
+     Inside the console, you can query the `local.group_credentials` to check if the groupings are correct:
+     ```hcl
+     local.group_credentials
+     ```
+
+   This will return the structure of how the `group_credentials` map is populated, allowing you to verify if the credentials are correctly assigned to groups.
+
+   - **Verify IAM Bindings**:
+     You can also verify the IAM bindings by querying the `google_storage_bucket_iam_binding` resources:
+     ```hcl
+     google_storage_bucket_iam_binding.bucket_bindings
+     ```
+     This should return the IAM bindings as expected, with each role bound to the correct service account groups.
+
+   - **Check for Group Assignments**:
+     Specifically for each role, check if the members are grouped correctly. You could test it by verifying the assigned IAM roles:
+     ```hcl
+     google_storage_bucket_iam_binding.bucket_bindings["roles/storage.objectAdmin"].members
+     ```
+     This will allow you to see which service accounts (grouped as per your configuration) are assigned to this role.
+
+### 2. **Test Access Control with Service Accounts**:
+   Another way to test the groupings is to simulate access to the GCP resources based on the service accounts you assigned. For example:
+
+   - **Test Permissions**: Use `gcloud` to verify that the service accounts have the correct permissions based on their assigned roles. You can use `gcloud iam` commands to simulate actions as the service account, and check whether they have access to specific GCP resources.
+
+   Example:
+   ```bash
+   gcloud auth activate-service-account --key-file=/path/to/service/account/key.json
+   gcloud projects get-iam-policy your-project-id --flatten="bindings[].members" --filter="bindings.members:serviceAccount:your-service-account@your-project-id.iam.gserviceaccount.com"
+   ```
+   This should show you the roles assigned to that specific service account, confirming that it's correctly mapped to a group.
+
+### 3. **Use `terraform show` to Inspect the State**:
+   You can inspect the Terraform state to see if the changes have been correctly applied and to verify that the resources are correctly associated:
+   ```bash
+   terraform show
+   ```
+   This will output the entire state, including IAM bindings, groups, and roles. Check that the `google_storage_bucket_iam_binding` resource reflects your intended group assignments.
+
+### 4. **Unit Test (Optional)**:
+   If you want to automate this testing and ensure that the group-based logic works over time, consider writing unit tests for the Terraform code using `terraform-compliance` or a similar framework. This would allow you to write tests for your infrastructure as code to ensure things stay as intended as the code evolves.
+
+### 5. **Manual Validation**:
+   If you prefer to validate manually:
+   - Go to the IAM section of the GCP console.
+   - Check the IAM roles assigned to the service accounts created for each group.
+   - Ensure the permissions are correct for each group.
+
+### Key Points to Validate:
+- **Group-based access**: Verify that all credentials are correctly mapped to their respective groups.
+- **IAM roles**: Ensure the correct roles are assigned to the right service accounts based on their group.
+- **Permissions**: Test if users (via their GitHub actions) have the correct access depending on the environment.

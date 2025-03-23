@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# File: ./scripts/others/destroy-services.shell
+# Version: 0.1.0
+
+set -eou pipefail ;
+# set -x ;
+
+# -----------------------------------------------------------------------------#
+
+# ## Parse parameters
+# prefix="${1:-dev}"
+#
+# if [[ $# -gt 0 ]]; then shift; fi
+
+## Initialize empty defaults
+gcp_project_id=""
+gcp_region=""
+
+## CLI arg parsing
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --project-id)
+      gcp_project_id="$2"
+      shift 2
+      ;;
+    --region)
+      gcp_region="$2"
+      shift 2
+      ;;
+    --prefix)
+      prefix="$2"
+      shift 2
+      ;;
+    *)
+      echo >&2 "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+## Fallbacks from env or gcloud config
+gcp_project_id="${gcp_project_id:-${GCP_PROJECT_ID:-$(gcloud config get-value project 2>/dev/null)}}"
+## Fail early if gcp_project_id is invalid
+if [[ -z "${gcp_project_id}" ]]; then
+  echo >&2 "Error: gcp_project_id could not be resolved. Set --project-id or GCP_PROJECT_ID"
+  exit 1
+fi
+
+gcp_region="${gcp_region:-${GCP_REGION:-}}"
+## Fail early if gcp-region is invalid
+if [[ -z "${gcp_region}" ]]; then
+  echo >&2 "Error: gcp-region must be specified via --region, GCP_REGION"
+  exit 1
+fi
+
+## Debug (optional)
+# echo "Using Project: ${gcp_project_id}"
+# echo "Using Region:  ${gcp_region}"
+
+# Warning: Order/Precedence of operations are critical
+
+# 1. Global forwarding rule
+gcloud compute forwarding-rules \
+       delete ${prefix}--http-forwarding-rule \
+       --global --project="${gcp_project_id}" \
+       --quiet ;
+
+# 2. Target HTTP proxy
+gcloud compute target-http-proxies \
+       delete ${prefix}--web-http-proxy \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 3. URL map
+gcloud compute url-maps \
+       delete ${prefix}--web-url-map \
+       --global --project="${gcp_project_id}" \
+       --quiet ;
+
+# 4. Backend service
+gcloud compute backend-services \
+       delete ${prefix}--web-backend-service \
+       --global --project="${gcp_project_id}" \
+       --quiet ;
+
+# 5. Health checks
+gcloud compute health-checks \
+       delete ${prefix}--http-health-check \
+       --global --project="${gcp_project_id}" \
+       --quiet ;
+gcloud compute health-checks \
+       delete ${prefix}--http-health-check-us-west2 \
+       --global --project="${gcp_project_id}" \
+       --quiet ;
+
+# 6. Instance group manager (corrected)
+gcloud compute instance-groups managed \
+       delete ${prefix}--web-servers-group \
+       --region="${gcp_region}" \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 7. Autoscaler
+gcloud compute region-autoscalers \
+       delete ${prefix}--web-autoscaler \
+       --region="${gcp_region}" \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 8. Instance template
+gcloud compute instance-templates \
+       delete ${prefix}--web-server-template \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 9. Subnet
+gcloud compute networks subnets \
+       delete ${prefix}--webapp-subnet \
+       --region="${gcp_region}" \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 10. NAT config
+gcloud compute routers nats \
+       delete ${prefix}--webapp-nat-config \
+       --router=webapp-router \
+       --region="${gcp_region}" \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 11. Router
+gcloud compute routers \
+       delete ${prefix}--webapp-router \
+       --region="${gcp_region}" \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 12. VPC-peerings and adddresses list
+# Get active VPC peering network name
+vpc_name=$(
+  gcloud services vpc-peerings list \
+         --project="${gcp_project_id}" \
+         --format="value(network)" | grep -E '^[a-z0-9\-]+$'
+);
+
+if [[ -z "${vpc_name}" ]]; then
+  echo >&2 "Error: No VPC peering network found. Cannot proceed with deletion."
+  exit 1
+fi
+
+# Get PSA range name (first match with purpose=VPC_PEERING)
+psa_name=$(
+  gcloud compute addresses list \
+         --project="${gcp_project_id}" \
+         --global \
+         --filter="purpose=VPC_PEERING" \
+         --format="value(name)" | head -n1
+);
+
+if [[ -z "${psa_name}" ]]; then
+  echo >&2 "Error: No PSA (VPC_PEERING) address found to delete."
+  exit 1
+fi
+
+gcloud services vpc-peerings \
+       delete \
+       --network="$vpc_name" \
+       --project="${gcp_project_id}" \
+       --quiet;
+
+gcloud compute addresses \
+       delete "$psa_name" \
+       --global \
+       --project="${gcp_project_id}" \
+       --quiet;
+
+# 13. Firewall rules
+gcloud compute firewall-rules \
+       delete ${prefix}--allow-http-https \
+       --project="${gcp_project_id}" \
+       --quiet ;
+gcloud compute firewall-rules \
+       delete ${prefix}--allow-ssh-restricted \
+       --project="${gcp_project_id}" \
+       --quiet ;
+gcloud compute firewall-rules \
+       delete ${prefix}--allow-ssh-iap \
+       --project="${gcp_project_id}" \
+       --quiet ;
+
+# 14. VPC network
+gcloud compute networks \
+       delete ${prefix}--webapp-vpc \
+       --project="${gcp_project_id}" \
+       --quiet ;

@@ -1,0 +1,742 @@
+# File: .github/workflows/terraform.yaml
+# Version: 0.1.0
+
+name: Terraform GCP CI/CD Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      target_environment:
+        description: "Deployment environment"
+        required: false
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+      custom_environment:
+        description: "Workspace (e.g. 030125-nightly)"
+        required: false
+        default: ""
+
+      terraform_action:
+        description: "Terraform action to perform"
+        required: false
+        default: "validate"
+        type: choice
+        options:
+          - validate
+          - plan
+          - apply
+          - destroy
+
+      inspect_services:
+        description: "Inspect GCP Cloud Infrastructure"
+        required: false
+        default: false
+        type: boolean
+
+      inspect_loadbalancer:
+        description: "Inspect Loadbalancer Web service"
+        required: false
+        default: false
+        type: boolean
+
+      execute_stressload:
+        description: "Stressload Autoscaling service"
+        required: false
+        default: false
+        type: boolean
+
+      logging_level:
+        description: "Terraform logging verbosity"
+        required: false
+        default: "INFO"
+        type: choice
+        options:
+          - TRACE
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+          - OFF
+
+jobs:
+
+  terraform:
+    runs-on: ubuntu-latest
+
+    env:
+
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/credentials.json
+      PROJECT_CONFIG_FILE: ${{ github.workspace }}/project.json
+
+    steps:
+
+      - name: Checkout Repository
+        id: checkout_repository
+        continue-on-error: false
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        id: setup_terraform
+        continue-on-error: false
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION }}
+
+      # - name: Install Google Cloud SDK (quiet)
+      #   id: install_gcloudsdk
+      #   continue-on-error: false
+      #   run: |
+      #
+      #     {
+      #       sudo apt-get update && sudo apt-get install -y curl unzip jq
+      #       curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
+      #       source $HOME/google-cloud-sdk/path.bash.inc
+      #       gcloud version
+      #     } > gcloud-sdk-install.log 2>&1 ;
+      #
+      # - name: Upload gcloud install log
+      #   id: upload_setuplog
+      #   continue-on-error: false
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: gcloud-sdk-install-log
+      #     path: gcloud-sdk-install.log
+
+      - name: Install GCP gcloud CLI (minimal)
+        id: install_gcloudcli
+        continue-on-error: false
+        run: |
+
+          sudo apt-get update -y ;
+          sudo apt-get install -y google-cloud-cli
+
+          echo -e "---> GCP CLI Version (gcloud): " ;
+          gcloud version ;
+
+          echo -e "---> GCP CLI (gcloud) Package Information: " ;
+          apt show google-cloud-cli ;
+
+      - name: Determine Terraform Workspace
+        id: terraform_workspace
+        continue-on-error: false
+        run: |
+
+          custom_environment="${{ github.event.inputs.custom_environment }}" ;
+          default_environment="${{ github.event.inputs.target_environment }}" ;
+
+          target_workspace="${custom_environment:-$default_environment}" ;
+
+          if [[ -z "${target_workspace}" ]]; then
+                  echo -e "ERROR: Invalid Target Workspace '${target_workspace}'" >&2 ;
+                  exit 1 ;
+            else  echo -e "TARGET_WORKSPACE=${target_workspace}" >> $GITHUB_ENV ;
+          fi ;
+
+      - name: Set Terraform Logging Level
+        id: logging_verbosity
+        continue-on-error: false
+        run: |
+
+          ## Enforcing the TF_LOG if not set to false
+          verbosity="${{ github.event.inputs.logging_level }}" ;
+
+          if [[ "${verbosity}" != "OFF" && "${verbosity}" != "false" ]]; then
+            echo -e "TF_LOG=${verbosity}" >> $GITHUB_ENV ;
+          fi
+
+      - name: Configure Target Provider
+        id: provider_configfile
+        continue-on-error: false
+        run: |
+
+          target_provider=$(
+            jq -r '.defaults.provider' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+
+          if [[ -z "${target_provider}" ]]; then
+                  echo -e "ERROR: Invalid Target Provider '${target_provider}'" >&2 ;
+                  exit 1 ;
+            else  echo -e "TARGET_PROVIDER=${target_provider}" >> $GITHUB_ENV ;
+          fi ;
+
+          provider_filename=$(
+            jq -r --arg provider "${target_provider}" '.configs.providers.sets[$provider]' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;  # e.g.: ./configs/providers/gcp.json
+
+          providers_path=$(
+            jq -r '.configs.providers.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;  # e.g.: ./configs/providers
+
+          provider_config="${providers_path}/${provider_filename}" ;  # e.g.: ./configs/providers/gcp.json
+
+          if [[ ! -f "${provider_config}" ]]; then
+                  echo -e "ERROR: Invalid Provider Configuration" >&2 ;
+                  exit 1 ;
+            else  echo -e "PROVIDER_CONFIG=${provider_config}" >> $GITHUB_ENV ;
+          fi ;
+
+      - name: Configure Target Workspace
+        id: workspace_configfile
+        continue-on-error: false
+        run: |
+
+          targets_path=$(
+            jq -r '.configs.targets.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+
+          target_filename=$(
+            jq -r --arg env "${{ env.TARGET_WORKSPACE }}" '.configs.targets.sets[$env] // empty' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+
+          workspace_config="${targets_path}/${target_filename}" ;  # e.g.: ./configs/targets/dev.json
+          adhoc_workspace="${targets_path}/.adhoc-workspace.json" ;
+
+          if [ ! -f "${workspace_config}" ]; then
+            ## Warning: This is not a functional component and needs implementation.
+            echo -e "Adhoc environment detected. Using empty targets config." ;
+            echo '{}' > ${adhoc_workspace} ;
+            workspace_config="${adhoc_workspace}" ;
+          fi ;
+
+          if [[ ! -f "${workspace_config}" ]]; then
+                  echo -e "ERROR: Invalid Workspace Configuration" >&2 ;
+                  exit 1 ;
+            else  echo -e "WORKSPACE_CONFIG=${workspace_config}" >> $GITHUB_ENV ;
+          fi ;
+
+      - name: Decode GCP Credentials (base64 → JSON)
+        id: decode_credentials
+        continue-on-error: false
+        run: |
+
+          printf "%s" "${{ secrets.GCP_CREDENTIALS }}" \
+               | base64 --decode > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }} ;
+
+          if [[ ! -f ${{ env.GOOGLE_APPLICATION_CREDENTIALS }} ]]; then
+                  echo -e "ERROR: Invalid GCP Application Credentials file" >&2 ;
+                  exit 1 ;
+            else  if [[ ! -s "${{ env.GOOGLE_APPLICATION_CREDENTIALS }}" ]]; then
+                    echo -e "ERROR: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }} file is empty" ;
+                    exit 1 ;
+                  fi;
+          fi;
+
+      - name: Extract Workflow Globals (GCP_PROJECT_ID, etc.)
+        id: workflow_globals
+        continue-on-error: false
+        run: |
+
+          gcp_project_id=$(
+            jq -r .project_id "${{ env.GOOGLE_APPLICATION_CREDENTIALS }}"
+          ) ; echo -e "Project ID: ${gcp_project_id}" ;
+
+          if [[ -z "${gcp_project_id}" ]]; then
+                  echo -e "ERROR: GCP Project-ID is invalid" >&2 ;
+                  exit 1 ;
+            else  echo -e "GCP_PROJECT_ID=${gcp_project_id}" >> $GITHUB_ENV ;
+                  echo -e "TF_VAR_gcp_project_id=${gcp_project_id}" >> $GITHUB_ENV ;
+          fi ;
+
+          forwarding_rule_base=$(
+            jq -r '.name' "${{ github.workspace }}/configs/services/${{ env.TARGET_PROVIDER }}/http_forwarding.json"
+          ) ;
+
+          forwarding_rule_name="${{ env.TARGET_WORKSPACE }}--${forwarding_rule_base}" ;
+
+          # Export to GitHub Actions environment
+          echo -e "FORWARDING_RULE_NAME=${forwarding_rule_name}" >> $GITHUB_ENV ;
+
+      - name: Authenticate GCP Service Account
+        id: authenticate_account
+        continue-on-error: false
+        run: |
+
+          gcloud auth activate-service-account --key-file="${{ env.GOOGLE_APPLICATION_CREDENTIALS }}" ;
+
+      - name: Configure GCP Service Account
+        id: configure_account
+        continue-on-error: false
+        run: |
+
+          gcloud config set project "${{ env.GCP_PROJECT_ID }}" ;
+
+          # Extract abstract region from workspace config (e.g.: ./configs/targets/dev.json)
+          abstract_region=$(
+            jq -r '.region' "${{ env.WORKSPACE_CONFIG }}"
+          ) ;
+
+          # Resolve actual cloud region from project config (e.g.: ./configs/providers/gcp.json)
+          target_region=$(
+            jq -r --arg key "${abstract_region}" '.regions[$key]' "${{ env.PROVIDER_CONFIG }}"
+          ) ;
+
+          if [[ -z "${target_region}" ]]; then
+                  echo -e "ERROR: No available region found in '${{ env.PROVIDER_CONFIG }}'" >&2 ;
+                  exit 1 ;
+            else  echo -e "Resolved GCP Compute/Region: ${target_region}" ;
+                  gcloud config set compute/region "${target_region}" ;
+                  echo -e "TARGET_REGION=${target_region}" >> $GITHUB_ENV ;
+          fi ;
+
+          target_zone=$(
+            gcloud compute zones list \
+              --filter="region:(${target_region})" \
+              --limit=1 \
+              --format="value(name)"
+          ) ;
+
+          if [[ -z "${target_zone}" ]]; then
+                  echo -e "ERROR: No available zone found in region '${{ env.TARGET_REGION }}'" >&2 ;
+                  exit 1 ;
+            else  echo -e "Resolved GCP Compute/Zone: ${target_zone}" ;
+                  gcloud config set compute/zone "${target_zone}" ;
+                  echo -e "TARGET_ZONE=${target_zone}" >> $GITHUB_ENV ;
+          fi ;
+
+      - name: Listing Service Account Configuration
+        id: listing_account
+        continue-on-error: false
+        run: |
+
+          echo -e "Describe Active Auth Account (with Sensitive Fields Redacted)" ;
+          gcloud auth describe "$(
+            gcloud config get-value account
+          )" --format=json \
+          | jq 'def redact:
+                  walk(
+                    if type == "object" then
+                      with_entries(
+                        .key as $k
+                        | if ( $k | test(
+                            "_id_token|client_id|id_tokenb64|private_key|private_key_id|token"; "i"
+                          )) then { key: $k, value: "REDACTED" }
+                          else . end
+                      )
+                    else . end
+                  ); redact' ;
+
+          echo -e "List Current gcloud Configuration (Account, Project, etc.)" ;
+          gcloud config list --format=json ;
+
+          echo -e "Inspect gcloud Environment & Installation Context" ;
+          gcloud info --format=json | jq '{
+            config_paths: .config.paths,
+            environment: {
+              account: .config.account,
+              project: .config.project,
+              active_configuration: .config.active_configuration,
+              properties_file: .config.properties_file
+            },
+            installation: {
+              sdk_root: .sdk.root_directory
+            }
+          }' ;
+
+      - name: Installing Additional Packages
+        id: install_packages
+        continue-on-error: false
+        if: ${{ github.event.inputs.execute_stressload == 'true' }}
+        run: |
+
+          # Installs the `hey` binary if not already present.
+          # Uses the official release from S3 (not GitHub releases).
+
+          if command -v hey >/dev/null 2>&1; then
+            echo -e "[hey] already installed: $(command -v hey)"
+            hey --version || true
+            exit 0
+          fi
+
+          # Download official binary
+          echo -e "Downloading hey from official release URL..."
+          curl -sSL -o /tmp/hey https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64
+
+          chmod +x /tmp/hey
+          sudo mv /tmp/hey /usr/local/bin/hey
+
+          echo -e "Installed hey at: $(command -v hey)"
+          hey --version || true
+          echo -e "hey installed successfully."
+
+      - name: Configuring - GCP IAM Profiles
+        id: configure_profiles
+        continue-on-error: false
+        run: |
+
+          configure_profiles_path=$(
+            jq -r '.scripts.manage.configure_profiles.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_profiles_script=$(
+            jq -r '.scripts.manage.configure_profiles.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_profiles="${configure_profiles_path}/${configure_profiles_script}" ;
+          echo -e "Configure Profiles script: ${configure_profiles}" ;
+
+          chmod +x ${configure_profiles} ;
+          ls -l ${configure_profiles} ;
+
+          echo -e "Configuring GCP IAM Profiles ..." ;
+          $(which bash) ${configure_profiles} --create ;
+
+      - name: Configure Backend and Workspace
+        id: configure_backend
+        continue-on-error: false
+        run: |
+
+          configure_backend_path=$(
+            jq -r '.scripts.manage.configure_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_backend_script=$(
+            jq -r '.scripts.manage.configure_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_backend="${configure_backend_path}/${configure_backend_script}" ;
+          echo -e "Terraform Backend script: ${configure_backend}" ;
+
+          chmod +x ${configure_backend} ;
+          ls -l ${configure_backend} ;
+
+          echo -e "Initializing Terraform Bucket now..." ;
+          $(which bash) ${configure_backend} --create ;
+
+      - name: GCP Environment Diagnostics
+        id: environment_diagnostics
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud auth list (JSON)" ;
+          gcloud auth list --format=json ;
+
+          echo -e "\n>>> gcloud config list (JSON)" ;
+          gcloud config list --format=json ;
+
+          echo -e "\n>>> gcloud projects describe (${{ env.GCP_PROJECT_ID }})" ;
+          gcloud projects describe "${{ env.GCP_PROJECT_ID }}" ;
+
+      - name: GCP Compute - Project Information
+        id: compute_project_info
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud compute project-info describe (JSON)" ;
+          gcloud compute project-info describe --format=json | jq '.quotas = []' ;
+
+      - name: GCP Compute - Regions/Zones
+        id: compute_regions_zones
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud compute regions (${{ env.TARGET_REGION }}) list (filtered)" ;
+          gcloud compute regions list --format=json | jq --arg region "${{ env.TARGET_REGION }}" 'map(select(.name == $region) | .quotas = [])' ;
+
+          echo -e "\n>>> gcloud compute zones (${{ env.TARGET_REGION }}) list (filtered)" ;
+          gcloud compute zones list --filter="region:(${ env.TARGET_REGION })" --format=json | jq . ;
+
+      - name: GCP Compute - Networks
+        id: compute_networks
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud compute networks list (JSON)" ;
+          gcloud compute networks list --format=json \
+               | jq --arg region "${{ env.TARGET_REGION }}" 'map(.subnetworks |= map(select(test("/regions/" + $region + "/"))))' ;
+
+      - name: GCP Compute - Instances
+        id: compute_instances
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud compute instances list (JSON)" ;
+          gcloud compute instances list --format=json || echo -e "No instances" ;
+
+      # - name: GCP Services Listing
+      #   id: gcloud_services
+      #   continue-on-error: false
+      #   if: ${{ github.event.inputs.inspect_services == 'true' }}
+      #   run: |
+
+      #     echo -e "\n>>> gcloud services list --enabled (JSON)" ;
+      #     gcloud services list --enabled --format=json || echo -e "No enabled services" ;
+
+      - name: GCP Service-Accounts Listing
+        id: service_accounts
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_services == 'true' }}
+        run: |
+
+          echo -e "\n>>> gcloud iam service-accounts list (JSON)" ;
+          gcloud iam service-accounts list --format=json || echo -e "No service accounts found" ;
+
+      - name: Initializing Terraform
+        id: initialize_terraform
+        continue-on-error: false
+        run: |
+
+          project_config="${{ github.workspace }}/project.json" ;
+          policies_config="${{ github.workspace }}/configs/policies.json" ;
+
+          configure_terraform_path=$(
+            jq -r '.scripts.manage.configure_terraform.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_terraform_script=$(
+            jq -r '.scripts.manage.configure_terraform.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          configure_terraform="${configure_terraform_path}/${configure_terraform_script}" ;
+          echo -e "Configure Terraform script: ${configure_terraform}" ;
+
+          chmod +x ${configure_terraform} ;
+          ls -l ${configure_terraform} ;
+
+          echo -e "Initializing Terraform now..." ;
+          $(which bash) ${configure_terraform} --init \
+                                               --policies="${policies_config}" \
+                                               --project="${project_config}" \
+                                               --workspace="${{ env.TARGET_WORKSPACE }}" ;
+
+      - name: Configuring Terraform Workspace
+        id: configure_workspace
+        continue-on-error: false
+        run: |
+
+            project_config="${{ github.workspace }}/project.json" ;
+
+            configure_workspaces_path=$(
+              jq -r '.scripts.manage.configure_workspaces.path' ${{ env.PROJECT_CONFIG_FILE }}
+            ) ;
+            configure_workspaces_script=$(
+              jq -r '.scripts.manage.configure_workspaces.script' ${{ env.PROJECT_CONFIG_FILE }}
+            ) ;
+            configure_workspaces="${configure_workspaces_path}/${configure_workspaces_script}" ;
+            echo -e "Configure Workspaces script: ${configure_workspaces}" ;
+
+            chmod +x ${configure_workspaces} ;
+            ls -l ${configure_workspaces} ;
+
+            echo -e "Configuring Workspaces now..." ;
+            $(which bash) ${configure_workspaces} --create \
+                                                  --project="${project_config}" \
+                                                  --workspace="${{ env.TARGET_WORKSPACE }}" ;
+
+            if [[ -z "${TF_WORKSPACE:-}" ]]; then
+              echo -e "TF_WORKSPACE=${target_workspace}" >> "$GITHUB_ENV" ;
+            fi ;
+
+      - name: Terraform Validate
+        id: validate_terraform
+        continue-on-error: false
+        if: ${{ github.event.inputs.terraform_action == 'validate' }}
+        run: |
+
+          terraform validate ;
+
+      - name: Terraform Plan
+        id: plan_terraform
+        continue-on-error: false
+        if: >-
+          ${{
+            github.event.inputs.terraform_action == 'plan' ||
+            github.event.inputs.terraform_action == 'apply'
+          }}
+        run: |
+
+          terraform plan -lock=false -out=tfplan ;
+
+      - name: Terraform Apply
+        id: apply_terraform
+        continue-on-error: false
+        if: ${{ github.event.inputs.terraform_action == 'apply' }}
+        run: |
+
+          terraform apply -auto-approve tfplan ;
+
+          outputs_filename="outputs.json" ;
+          outputs_errors="outputs.errors" ;
+
+          outputs="$(
+            unset TF_LOG && TF_IN_AUTOMATION=1 \
+            terraform output -json \
+            | grep -vE '^Warning: .*|^\[command\]|^::(debug|set-output\ name=.*|group|endgroup)::' \
+            | jq -r . > ${outputs_filename} 2>${outputs_errors} ;
+          )" ;
+
+          echo -e "Exported Terraform Output -> JSON format (${outputs_filename})" ;
+          ls -l "${outputs_filename}" ;
+
+      - name: Packaging Cloud Function (Archive)
+        id: package_cloud_function
+        continue-on-error: false
+        if: >-
+          ${{
+            github.event.inputs.terraform_action == 'apply' ||
+            github.event.inputs.execute_stressload == 'true'
+          }}
+        run: |
+
+          package_functions_path=$(
+            jq -r '.scripts.manage.package_functions.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          package_functions_script=$(
+            jq -r '.scripts.manage.package_functions.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          package_functions="${package_functions_path}/${package_functions_script}" ;
+          echo -e "Package Cloud Function script: ${package_functions}" ;
+
+          chmod +x ${package_functions} ;
+          ls -l ${package_functions} ;
+
+          $(which bash) ${package_functions} "${{ env.TARGET_PROVIDER }}";
+
+      - name: Inspect Load Balancer Services
+        id: loadbalancer_services
+        continue-on-error: false
+        if: ${{ github.event.inputs.inspect_loadbalancer == 'true' }}
+        run: |
+
+          # Resolve inspect-services script path from project configuration file
+          inspect_path=$(
+            jq -r '.scripts.manage.inspect_services.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          inspect_script=$(
+            jq -r '.scripts.manage.inspect_services.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          inspect_services="${inspect_path}/${inspect_script}" ;
+          echo -e "Inspect Services script: ${inspect_services}" ;
+
+          chmod +x ${inspect_services} ;
+          ls -l ${inspect_services} ;
+
+          $(which bash) ${inspect_services} "${{ env.FORWARDING_RULE_NAME }}" ;
+
+      - name: Evaluate Stressload Condition
+        id: evaluate_stressload
+        continue-on-error: false
+        if: >-
+          ${{
+            github.event.inputs.execute_stressload == 'true' &&
+            github.event.inputs.terraform_action == 'apply'
+          }}
+        run: |
+
+          if [[ "${{ github.event.inputs.execute_stressload }}" == "true" ]]; then
+                  echo -e "EXECUTE_STRESSLOAD=true" >> $GITHUB_ENV ;
+                  echo -e "Stressload test is enabled." ;
+            else  echo -e "EXECUTE_STRESSLOAD=false" >> $GITHUB_ENV ;
+                  echo -e "Stressload test is skipped." ;
+          fi ;
+
+          # loadbalancer_address="$(
+          #   unset TF_LOG && terraform output -raw load_balancer_ip
+          # )" ;
+          # loadbalancer_address="$( jq -r '.load_balancer_ip.value' ./outputs.json )" ;
+
+          loadbalancer_address="$(
+            unset TF_LOG && terraform output -raw load_balancer_ip 2>/dev/null \
+            | awk -F'::' '{print $1}' \
+            | grep -Ev "^Warning: .*$|^.*terraform-bin\ output\ .*$"
+          )"
+
+          echo -e "LOADBALANCER_ADDRESS=${loadbalancer_address}" >> $GITHUB_ENV ;
+
+      - name: Execute Stressload Autoscaling Service
+        id: execute_stressload
+        continue-on-error: false
+        if: ${{ env.EXECUTE_STRESSLOAD == 'true' }}
+        run: |
+
+          # Resolve inspect-autoscaling script path from project configuration file
+          inspect_autoscaling_path=$(
+            jq -r '.scripts.manage.inspect_autoscaling.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          inspect_autoscaling_script=$(
+            jq -r '.scripts.manage.inspect_autoscaling.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          inspect_autoscaling="${inspect_autoscaling_path}/${inspect_autoscaling_script}" ;
+          echo -e "Inspect Autoscaling script: ${inspect_autoscaling}" ;
+
+          chmod +x ${inspect_autoscaling} ;
+          ls -l ${inspect_autoscaling} ;
+
+          $(which bash) ${inspect_autoscaling} "${{ github.workspace }}" ;
+
+      - name: Evaluate State Backup Condition
+        id: destroy_tfstate
+        continue-on-error: false
+        # if: ${{ github.event.inputs.terraform_action == 'destroy' && env.TARGET_WORKSPACE == 'dev' }}
+        run: |
+
+          if [[
+                "${{ github.event.inputs.terraform_action }}" == "destroy" &&
+                "${{ env.TARGET_WORKSPACE }}" == "dev"
+             ]]; then
+                  echo -e "DESTROY_TFSTATE=true" >> $GITHUB_ENV ;
+            else  echo -e "DESTROY_TFSTATE=false" >> $GITHUB_ENV ;
+          fi ;
+
+      - name: Download Terraform State Files (Backup)
+        id: download_tfstate
+        continue-on-error: false
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
+        run: |
+
+          backend_path=$(
+            jq -r '.scripts.manage.configure_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          backend_script_name=$(
+            jq -r '.scripts.manage.configure_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
+          ) ;
+          backend_script="${backend_path}/${backend_script_name}" ;
+          echo -e "Terraform Backend script: ${backend_script}" ;
+
+          chmod +x ${backend_script} ;
+          ls -l ${backend_script} ;
+
+          $(which bash) ${backend_script} --download ;
+
+      - name: Archiving Terraform States (tfstate, json)
+        id: archiving_tfstates
+        continue-on-error: false
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
+        run: |
+
+            mkdir -p .uploads/{tfstates,jsons} ;
+
+            find .local -name "*.tfstate" | xargs -I {} cp -pv {} .uploads/tfstates/ ;
+            find .local -name "*.tfstate.json" | xargs -I {} cp -pv {} .uploads/jsons/ ;
+
+      - name: Uploading Terraform State files
+        id: upload_tfstate
+        continue-on-error: false
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-tfstates--${{ github.run_id }}
+          path: .uploads/tfstates/
+
+      - name: Uploading Terraform State (JSON) files
+        id: upload_tfstate_json
+        continue-on-error: false
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-tfstates-json--${{ github.run_id }}
+          path: .uploads/jsons/
+
+      - name: Terraform Destroy
+        id: destroy_terraform
+        continue-on-error: false
+        # if: ${{ github.event.inputs.terraform_action == 'destroy' }}
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
+        run: |
+
+          terraform destroy -auto-approve ;
