@@ -1,7 +1,7 @@
 $ terraform apply ;
 
 module.compute.data.google_compute_zones.available: Reading...
-module.compute.data.google_compute_zones.available: Read complete after 1s [id=projects/<project-name>/regions/us-west2]
+module.compute.data.google_compute_zones.available: Read complete after 0s [id=projects/<project-name>/regions/us-west2]
 
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
   + create
@@ -26,7 +26,7 @@ Terraform will perform the following actions:
       + instance_group_manager_id        = (known after apply)
       + instance_lifecycle_policy        = (known after apply)
       + list_managed_instances_results   = (known after apply)
-      + name                             = "web-servers-group"
+      + name                             = "dev--web-servers-group"
       + named_port                       = (known after apply)
       + project                          = "<project-name>"
       + region                           = "us-west2"
@@ -51,7 +51,7 @@ Terraform will perform the following actions:
       + creation_timestamp  = (known after apply)
       + healthy_threshold   = 2
       + id                  = (known after apply)
-      + name                = "http-health-check-us-west2"
+      + name                = "dev--http-health-check-us-west2"
       + project             = "<project-name>"
       + self_link           = (known after apply)
       + timeout_sec         = 5
@@ -100,7 +100,7 @@ Terraform will perform the following actions:
         }
       + metadata_fingerprint = (known after apply)
       + name                 = (known after apply)
-      + name_prefix          = "web-server-template--"
+      + name_prefix          = "dev--web-server-template--"
       + project              = "<project-name>"
       + region               = "us-west2"
       + self_link            = (known after apply)
@@ -145,6 +145,29 @@ Terraform will perform the following actions:
       + scheduling (known after apply)
     }
 
+  # module.compute.google_compute_region_autoscaler.web_autoscaler will be created
+  + resource "google_compute_region_autoscaler" "web_autoscaler" {
+      + creation_timestamp = (known after apply)
+      + id                 = (known after apply)
+      + name               = "dev--web-autoscaler"
+      + project            = "<project-name>"
+      + region             = "us-west2"
+      + self_link          = (known after apply)
+      + target             = (known after apply)
+
+      + autoscaling_policy {
+          + cooldown_period = 60
+          + max_replicas    = 4
+          + min_replicas    = 1
+          + mode            = "ON"
+
+          + cpu_utilization {
+              + predictive_method = "NONE"
+              + target            = 0.6
+            }
+        }
+    }
+
   # module.compute.google_compute_region_instance_group_manager.web_servers will be created
   + resource "google_compute_region_instance_group_manager" "web_servers" {
       + base_instance_name               = "web-server"
@@ -160,7 +183,7 @@ Terraform will perform the following actions:
       + instance_group                   = (known after apply)
       + instance_group_manager_id        = (known after apply)
       + list_managed_instances_results   = "PAGELESS"
-      + name                             = "web-servers-group"
+      + name                             = "dev--web-servers-group"
       + project                          = "<project-name>"
       + region                           = "us-west2"
       + self_link                        = (known after apply)
@@ -189,7 +212,7 @@ Terraform will perform the following actions:
       + direction          = (known after apply)
       + enable_logging     = (known after apply)
       + id                 = (known after apply)
-      + name               = "allow-http-https"
+      + name               = "dev--allow-http-https"
       + network            = (known after apply)
       + priority           = 1000
       + project            = "<project-name>"
@@ -214,7 +237,7 @@ Terraform will perform the following actions:
       + direction          = (known after apply)
       + enable_logging     = (known after apply)
       + id                 = (known after apply)
-      + name               = "allow-ssh-restricted"
+      + name               = "dev--allow-ssh-restricted"
       + network            = (known after apply)
       + priority           = 1000
       + project            = "<project-name>"
@@ -243,7 +266,7 @@ Terraform will perform the following actions:
       + direction          = (known after apply)
       + enable_logging     = (known after apply)
       + id                 = (known after apply)
-      + name               = "allow-ssh-iap"
+      + name               = "dev--allow-ssh-iap"
       + network            = (known after apply)
       + priority           = 1000
       + project            = "<project-name>"
@@ -352,7 +375,7 @@ Terraform will perform the following actions:
   + resource "google_compute_target_http_proxy" "default" {
       + creation_timestamp = (known after apply)
       + id                 = (known after apply)
-      + name               = "web-http-proxy"
+      + name               = "dev--web-http-proxy"
       + project            = "<project-name>"
       + proxy_bind         = (known after apply)
       + proxy_id           = (known after apply)
@@ -367,9 +390,30 @@ Terraform will perform the following actions:
       + fingerprint        = (known after apply)
       + id                 = (known after apply)
       + map_id             = (known after apply)
-      + name               = "web-url-map"
+      + name               = "dev--web-url-map"
       + project            = "<project-name>"
       + self_link          = (known after apply)
+    }
+
+  # module.networking.google_compute_global_address.cloudsql_psa_range will be created
+  + resource "google_compute_global_address" "cloudsql_psa_range" {
+      + address            = (known after apply)
+      + address_type       = "INTERNAL"
+      + creation_timestamp = (known after apply)
+      + effective_labels   = {
+          + "goog-terraform-provisioned" = "true"
+        }
+      + id                 = (known after apply)
+      + label_fingerprint  = (known after apply)
+      + name               = "dev--cloudsql-psa-range"
+      + network            = (known after apply)
+      + prefix_length      = 16
+      + project            = "<project-name>"
+      + purpose            = "VPC_PEERING"
+      + self_link          = (known after apply)
+      + terraform_labels   = {
+          + "goog-terraform-provisioned" = "true"
+        }
     }
 
   # module.networking.google_compute_network.vpc_network will be created
@@ -383,7 +427,7 @@ Terraform will perform the following actions:
       + id                                        = (known after apply)
       + internal_ipv6_range                       = (known after apply)
       + mtu                                       = (known after apply)
-      + name                                      = "webapp-vpc"
+      + name                                      = "dev--webapp-vpc"
       + network_firewall_policy_enforcement_order = "AFTER_CLASSIC_FIREWALL"
       + network_id                                = (known after apply)
       + numeric_id                                = (known after apply)
@@ -396,7 +440,7 @@ Terraform will perform the following actions:
   + resource "google_compute_router" "nat_router" {
       + creation_timestamp = (known after apply)
       + id                 = (known after apply)
-      + name               = "webapp-router"
+      + name               = "dev--webapp-router"
       + network            = (known after apply)
       + project            = "<project-name>"
       + region             = "us-west2"
@@ -413,12 +457,12 @@ Terraform will perform the following actions:
       + icmp_idle_timeout_sec               = 30
       + id                                  = (known after apply)
       + min_ports_per_vm                    = (known after apply)
-      + name                                = "webapp-nat-config"
+      + name                                = "dev--webapp-nat-config"
       + nat_ip_allocate_option              = "AUTO_ONLY"
       + nat_ips                             = (known after apply)
       + project                             = "<project-name>"
       + region                              = "us-west2"
-      + router                              = "webapp-router"
+      + router                              = "dev--webapp-router"
       + source_subnetwork_ip_ranges_to_nat  = "ALL_SUBNETWORKS_ALL_IP_RANGES"
       + tcp_established_idle_timeout_sec    = 1200
       + tcp_time_wait_timeout_sec           = 120
@@ -443,7 +487,7 @@ Terraform will perform the following actions:
       + ip_cidr_range              = "10.0.1.0/24"
       + ipv6_cidr_range            = (known after apply)
       + ipv6_gce_endpoint          = (known after apply)
-      + name                       = "webapp-subnet"
+      + name                       = "dev--webapp-subnet"
       + network                    = (known after apply)
       + private_ip_google_access   = (known after apply)
       + private_ipv6_google_access = (known after apply)
@@ -458,7 +502,26 @@ Terraform will perform the following actions:
       + secondary_ip_range (known after apply)
     }
 
-Plan: 15 to add, 0 to change, 0 to destroy.
+  # module.networking.google_project_service.servicenetworking will be created
+  + resource "google_project_service" "servicenetworking" {
+      + disable_on_destroy = false
+      + id                 = (known after apply)
+      + project            = "<project-name>"
+      + service            = "servicenetworking.googleapis.com"
+    }
+
+  # module.networking.google_service_networking_connection.cloudsql_psa_connection will be created
+  + resource "google_service_networking_connection" "cloudsql_psa_connection" {
+      + id                      = (known after apply)
+      + network                 = (known after apply)
+      + peering                 = (known after apply)
+      + reserved_peering_ranges = [
+          + "dev--cloudsql-psa-range",
+        ]
+      + service                 = "servicenetworking.googleapis.com"
+    }
+
+Plan: 19 to add, 0 to change, 0 to destroy.
 
 Changes to Outputs:
   + console_ips              = [
@@ -478,66 +541,94 @@ Changes to Outputs:
   + web_backend_service_name = "dev--web-backend-service"
   + web_server_ip            = (known after apply)
 
-Do you want to perform these actions?
+Do you want to perform these actions in workspace "dev"?
   Terraform will perform the actions described above.
   Only 'yes' will be accepted to approve.
 
   Enter a value: yes
 
+module.networking.google_project_service.servicenetworking: Creating...
 module.networking.google_compute_network.vpc_network: Creating...
-module.compute.google_compute_health_check.http: Creating...
 module.load_balancer.google_compute_health_check.http: Creating...
+module.compute.google_compute_health_check.http: Creating...
 module.networking.google_compute_network.vpc_network: Still creating... [10s elapsed]
+module.networking.google_project_service.servicenetworking: Still creating... [10s elapsed]
 module.load_balancer.google_compute_health_check.http: Still creating... [10s elapsed]
 module.compute.google_compute_health_check.http: Still creating... [10s elapsed]
 module.load_balancer.google_compute_health_check.http: Creation complete after 12s [id=projects/<project-name>/global/healthChecks/dev--http-health-check]
-module.compute.google_compute_health_check.http: Creation complete after 12s [id=projects/<project-name>/global/healthChecks/http-health-check-us-west2]
+module.compute.google_compute_health_check.http: Creation complete after 12s [id=projects/<project-name>/global/healthChecks/dev--http-health-check-us-west2]
+module.networking.google_project_service.servicenetworking: Still creating... [20s elapsed]
 module.networking.google_compute_network.vpc_network: Still creating... [20s elapsed]
-module.networking.google_compute_network.vpc_network: Creation complete after 22s [id=projects/<project-name>/global/networks/webapp-vpc]
+module.networking.google_project_service.servicenetworking: Creation complete after 22s [id=<project-name>/servicenetworking.googleapis.com]
+module.networking.google_compute_network.vpc_network: Still creating... [30s elapsed]
+module.networking.google_compute_network.vpc_network: Creation complete after 33s [id=projects/<project-name>/global/networks/dev--webapp-vpc]
 module.networking.google_compute_router.nat_router: Creating...
+module.networking.google_compute_global_address.cloudsql_psa_range: Creating...
 module.networking.google_compute_subnetwork.subnet: Creating...
+module.firewall.google_compute_firewall.allow_ssh_iap: Creating...
 module.firewall.google_compute_firewall.allow_http_https: Creating...
 module.firewall.google_compute_firewall.allow_ssh: Creating...
-module.firewall.google_compute_firewall.allow_ssh_iap: Creating...
-module.networking.google_compute_subnetwork.subnet: Still creating... [10s elapsed]
-module.firewall.google_compute_firewall.allow_http_https: Still creating... [10s elapsed]
 module.networking.google_compute_router.nat_router: Still creating... [10s elapsed]
+module.networking.google_compute_global_address.cloudsql_psa_range: Still creating... [10s elapsed]
+module.networking.google_compute_subnetwork.subnet: Still creating... [10s elapsed]
 module.firewall.google_compute_firewall.allow_ssh: Still creating... [10s elapsed]
 module.firewall.google_compute_firewall.allow_ssh_iap: Still creating... [10s elapsed]
-module.networking.google_compute_router.nat_router: Creation complete after 11s [id=projects/<project-name>/regions/us-west2/routers/webapp-router]
-module.firewall.google_compute_firewall.allow_ssh_iap: Creation complete after 11s [id=projects/<project-name>/global/firewalls/allow-ssh-iap]
-module.firewall.google_compute_firewall.allow_ssh: Creation complete after 11s [id=projects/<project-name>/global/firewalls/allow-ssh-restricted]
+module.firewall.google_compute_firewall.allow_http_https: Still creating... [10s elapsed]
+module.networking.google_compute_router.nat_router: Creation complete after 11s [id=projects/<project-name>/regions/us-west2/routers/dev--webapp-router]
 module.networking.google_compute_router_nat.nat_config: Creating...
-module.networking.google_compute_subnetwork.subnet: Creation complete after 11s [id=projects/<project-name>/regions/us-west2/subnetworks/webapp-subnet]
+module.firewall.google_compute_firewall.allow_http_https: Creation complete after 11s [id=projects/<project-name>/global/firewalls/dev--allow-http-https]
+module.networking.google_compute_subnetwork.subnet: Creation complete after 12s [id=projects/<project-name>/regions/us-west2/subnetworks/dev--webapp-subnet]
 module.compute.google_compute_instance_template.web_server: Creating...
-module.firewall.google_compute_firewall.allow_http_https: Creation complete after 12s [id=projects/<project-name>/global/firewalls/allow-http-https]
-module.compute.google_compute_instance_template.web_server: Creation complete after 3s [id=projects/<project-name>/global/instanceTemplates/web-server-template--20250326091616904000000001]
+module.firewall.google_compute_firewall.allow_ssh_iap: Creation complete after 12s [id=projects/<project-name>/global/firewalls/dev--allow-ssh-iap]
+module.networking.google_compute_global_address.cloudsql_psa_range: Creation complete after 12s [id=projects/<project-name>/global/addresses/dev--cloudsql-psa-range]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Creating...
+module.compute.google_compute_instance_template.web_server: Creation complete after 2s [id=projects/<project-name>/global/instanceTemplates/dev--web-server-template--20250327062420981900000001]
 module.compute.google_compute_region_instance_group_manager.web_servers: Creating...
+module.firewall.google_compute_firewall.allow_ssh: Still creating... [20s elapsed]
 module.networking.google_compute_router_nat.nat_config: Still creating... [10s elapsed]
-module.networking.google_compute_router_nat.nat_config: Creation complete after 11s [id=<project-name>/us-west2/webapp-router/webapp-nat-config]
+module.networking.google_compute_router_nat.nat_config: Creation complete after 11s [id=<project-name>/us-west2/dev--webapp-router/dev--webapp-nat-config]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [10s elapsed]
+module.firewall.google_compute_firewall.allow_ssh: Creation complete after 22s [id=projects/<project-name>/global/firewalls/dev--allow-ssh-restricted]
 module.compute.google_compute_region_instance_group_manager.web_servers: Still creating... [10s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [20s elapsed]
 module.compute.google_compute_region_instance_group_manager.web_servers: Still creating... [20s elapsed]
-module.compute.google_compute_region_instance_group_manager.web_servers: Creation complete after 21s [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group]
+module.compute.google_compute_region_instance_group_manager.web_servers: Creation complete after 21s [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/dev--web-servers-group]
 module.compute.data.google_compute_region_instance_group_manager.web_servers: Reading...
+module.compute.google_compute_region_autoscaler.web_autoscaler: Creating...
 module.load_balancer.google_compute_backend_service.web_backend: Creating...
-module.compute.data.google_compute_region_instance_group_manager.web_servers: Read complete after 0s [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/web-servers-group]
+module.compute.data.google_compute_region_instance_group_manager.web_servers: Read complete after 0s [id=projects/<project-name>/regions/us-west2/instanceGroupManagers/dev--web-servers-group]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [30s elapsed]
+module.compute.google_compute_region_autoscaler.web_autoscaler: Still creating... [10s elapsed]
 module.load_balancer.google_compute_backend_service.web_backend: Still creating... [10s elapsed]
+module.compute.google_compute_region_autoscaler.web_autoscaler: Creation complete after 10s [id=projects/<project-name>/regions/us-west2/autoscalers/dev--web-autoscaler]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [40s elapsed]
 module.load_balancer.google_compute_backend_service.web_backend: Still creating... [20s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [50s elapsed]
 module.load_balancer.google_compute_backend_service.web_backend: Still creating... [30s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m0s elapsed]
 module.load_balancer.google_compute_backend_service.web_backend: Still creating... [40s elapsed]
 module.load_balancer.google_compute_backend_service.web_backend: Creation complete after 42s [id=projects/<project-name>/global/backendServices/dev--web-backend-service]
 module.load_balancer.google_compute_url_map.default: Creating...
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m10s elapsed]
 module.load_balancer.google_compute_url_map.default: Still creating... [10s elapsed]
-module.load_balancer.google_compute_url_map.default: Creation complete after 11s [id=projects/<project-name>/global/urlMaps/web-url-map]
+module.load_balancer.google_compute_url_map.default: Creation complete after 11s [id=projects/<project-name>/global/urlMaps/dev--web-url-map]
 module.load_balancer.google_compute_target_http_proxy.default: Creating...
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m20s elapsed]
 module.load_balancer.google_compute_target_http_proxy.default: Still creating... [10s elapsed]
-module.load_balancer.google_compute_target_http_proxy.default: Creation complete after 12s [id=projects/<project-name>/global/targetHttpProxies/web-http-proxy]
+module.load_balancer.google_compute_target_http_proxy.default: Creation complete after 11s [id=projects/<project-name>/global/targetHttpProxies/dev--web-http-proxy]
 module.load_balancer.google_compute_global_forwarding_rule.http: Creating...
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m30s elapsed]
 module.load_balancer.google_compute_global_forwarding_rule.http: Still creating... [10s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m40s elapsed]
 module.load_balancer.google_compute_global_forwarding_rule.http: Still creating... [20s elapsed]
-module.load_balancer.google_compute_global_forwarding_rule.http: Creation complete after 22s [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [1m50s elapsed]
+module.load_balancer.google_compute_global_forwarding_rule.http: Creation complete after 21s [id=projects/<project-name>/global/forwardingRules/dev--http-forwarding-rule]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [2m0s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [2m10s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Still creating... [2m20s elapsed]
+module.networking.google_service_networking_connection.cloudsql_psa_connection: Creation complete after 2m23s [id=projects%2F<project-name>%2Fglobal%2Fnetworks%2Fdev--webapp-vpc:servicenetworking.googleapis.com]
 
-Apply complete! Resources: 15 added, 0 changed, 0 destroyed.
+Apply complete! Resources: 19 added, 0 changed, 0 destroyed.
 
 Outputs:
 
@@ -550,10 +641,10 @@ devops_ips = tolist([
 forwarding_rule_name = "dev--http-forwarding-rule"
 http_health_check_name = "dev--http-health-check"
 instance_type = "e2-micro"
-load_balancer_ip = "34.49.100.242"
+load_balancer_ip = "34.111.10.239"
 private_ips = tolist([
   "10.0.0.0/8",
 ])
 region = "us-west2"
 web_backend_service_name = "dev--web-backend-service"
-web_server_ip = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/web-servers-group"
+web_server_ip = "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroups/dev--web-servers-group"

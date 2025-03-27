@@ -2,13 +2,13 @@
 # Version: 0.1.0
 
 resource "google_compute_router" "nat_router" {
-  name    = "webapp-router"
+  name    = "${terraform.workspace}--webapp-router"
   region  = var.region
   network = google_compute_network.vpc_network.id
 }
 
 resource "google_compute_router_nat" "nat_config" {
-  name                               = "webapp-nat-config"
+  name                               = "${terraform.workspace}--webapp-nat-config"
   router                             = google_compute_router.nat_router.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"

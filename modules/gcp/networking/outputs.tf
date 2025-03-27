@@ -15,3 +15,13 @@ output "subnet_id" {
   description = "Subnet ID"
   value       = google_compute_subnetwork.subnet.id
 }
+
+output "cloudsql_psa_range_name" {
+  description = "Name of the reserved PSA IP range for Cloud SQL"
+  value       = google_compute_global_address.cloudsql_psa_range.name
+}
+
+output "vpc_self_link" {
+  description = "Self link of the VPC network"
+  value       = google_compute_network.vpc_network.self_link
+}

@@ -5,8 +5,13 @@
 
 set -euo pipefail
 
+project_id="$(
+  gcloud config get-value project
+)";
+
 forwarding_rule_name="${1:-http-forwarding-rule}";
 output_format="json";
+
 liner="
 ================================================================================
 ";
@@ -34,9 +39,9 @@ function forwarding_rules () {
     #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/forwardingRules/http-forwarding-rule",
     #   "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy"
     # }
-    if [[ ! -z ${forwarding_rule__json} ]]; then
+    if [[ -n ${forwarding_rule__json} ]]; then
       ## Heading components
-      local command="gcloud compute forwarding-rules describe \"${forwarding_rule_name}\" --global --format=${output_format}";
+      local command="gcloud compute forwarding-rules describe ${forwarding_rule_name} --global --format=${output_format}";
       echo -e "${liner}Forwarding Rule Description: ${forwarding_rule_name}\n${command}\n";
       ## JSON Output:
       jq . <<< ${forwarding_rule__json};
@@ -46,6 +51,9 @@ function forwarding_rules () {
       target_proxy_url=$( jq -r '.target' <<< "${forwarding_rule__json}" );
       target_proxy_name=$( basename "$target_proxy_url" );
     fi;
+    echo -e;
+    echo -e "External IP: ${target_ip_address}";
+    echo -e "Target Proxy: ${target_proxy_name}";
     return 0;
   }; alias forwarding-rules='forwarding_rules';
 
@@ -64,9 +72,9 @@ function target_http_proxies () {
     #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/targetHttpProxies/web-http-proxy",
     #   "urlMap": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
     # }
-    if [[ ! -z ${target_http_proxies__json} ]]; then
+    if [[ -n ${target_http_proxies__json} ]]; then
       ## Heading components
-      local command="gcloud compute target-http-proxies describe \"${target_proxy_name}\" --format=${output_format}";
+      local command="gcloud compute target-http-proxies describe ${target_proxy_name} --format=${output_format}";
       echo -e "${liner}Target HTTP Proxy: ${target_proxy_name}\n${command}\n";
       ## JSON Output:
       jq . <<< ${target_http_proxies__json};
@@ -74,6 +82,8 @@ function target_http_proxies () {
       url_map_url=$( jq -r '.urlMap' <<< "$target_http_proxies__json" );
       url_map_name=$( basename "${url_map_url}" );
     fi;
+    echo -e;
+    echo -e "URL Map: ${url_map_name}";
     return 0;
   }; alias target-http-proxies='target_http_proxies';
 
@@ -92,9 +102,9 @@ function url_maps () {
     #   "name": "web-url-map",
     #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/global/urlMaps/web-url-map"
     # }
-    if [[ ! -z ${url_maps__json} ]]; then
+    if [[ -n ${url_maps__json} ]]; then
       ## Heading components
-      local command="gcloud compute url-maps describe \"${url_map_name}\" --format=${output_format}";
+      local command="gcloud compute url-maps describe ${url_map_name} --format=${output_format}";
       echo -e "${liner}URL Map: ${url_map_name}\n${command}\n";
       ## JSON Output:
       jq . <<< ${url_maps__json};
@@ -102,6 +112,8 @@ function url_maps () {
       backend_service_url=$( jq -r '.defaultService' <<<  "${url_maps__json}" );
       backend_service_name=$( basename "${backend_service_url}" );
     fi;
+    echo -e;
+    echo -e "Backend Service: ${backend_service_name}";
     return 0;
   }; alias url-maps='url_maps';
 
@@ -147,17 +159,20 @@ function backend_services () {
     #     }
     #   ]
     # }
-    if [[ ! -z ${backend_services__json} ]]; then
+    if [[ -n ${backend_services__json} ]]; then
       ## Heading components
-      local command="gcloud compute backend-services describe \"${backend_service_name}\" --global --format=${output_format}";
+      local command="gcloud compute backend-services describe ${backend_service_name} --global --format=${output_format}";
       echo -e "${liner}Backend Service: ${backend_service_name}\n${command}\n";
       ## JSON Output:
       jq . <<< ${backend_services__json};
       ## Extracting properties:
       instance_group_url=$( jq -r '.backends[0].group' <<< "${backend_services__json}" );
       instance_group_name=$( basename "${instance_group_url}" );
-      instance_group_zone=$( echo "${instance_group_url}" | awk -F/ '{print $(NF-2)}' )
+      instance_group_region=$( echo "${instance_group_url}" | awk -F/ '{print $(NF-2)}' )
     fi;
+    echo -e;
+    echo -e "Group Instance: ${instance_group_name}";
+    echo -e "Group Region:   ${instance_group_region}";
     return 0;
   }; alias backend-services='backend_services';
 
@@ -184,56 +199,33 @@ function health_status () {
     #     }
     #   }
     # ]
-    if [[ ! -z ${health_status__json} ]]; then
+    if [[ -n ${health_status__json} ]]; then
       ## Heading components
-      local command="gcloud compute backend-services get-health \"${backend_service_name}\" --global --format=${output_format}";
+      local command="gcloud compute backend-services get-health ${backend_service_name} --global --format=${output_format}";
       echo -e "${liner}Backend Health Status\n${command}\n";
       ## JSON Output:
       jq . <<< ${health_status__json};
       ## Extracting properties:
       health_status_state=$( jq -r '.[].status.healthStatus[].healthState' <<< "${health_status__json}" );
     fi;
+    echo -e;
+    echo -e "Health Status - State: ${health_status_state}";
     return 0;
   }; alias health-status='health_status';
 
-function instance_groups () {
-    local instance_data__json=$(
-      gcloud compute instance-groups \
-             list-instances "${instance_group_name}" \
-             --region="$instance_group_zone" \
-             --format=${output_format}
-    );
-    echo "$instance_data__json" | jq -r '.[].instance' \
-    | while read -r instance_url; do
-      instance_zone=$(
-        echo "${instance_url}" | cut -d'/' -f9
-      );
-      instance_name=$(
-        echo "${instance_url}" | cut -d'/' -f11
-      );
-      echo -e "\nInstance: ${instance_name} (${instance_zone})"
-      gcloud compute instances \
-             describe "${instance_name}" \
-             --zone="${instance_zone}" \
-             --format=${output_format} \
-      | jq .;
-    done;
-    return 0;
-  }; alias instance-groups='instance_groups';
-
 function webserver_response () {
     ## Heading components
-    local command="curl -I --connect-timeout 5 \"http://${target_ip_address}\"";
+    local command="curl --head --connect-timeout 10 http://${target_ip_address}";
     echo -e "${liner}Web Server HTTP Response Check\n${command}\n";
     if [[ -z "${target_ip_address}" ]]; then
             echo -e "Warning: Could not resolve IP address from forwarding rule!";
             exit 1;
-      else  echo -e "Waiting for web-server (${target_ip_address}) response ...\n";
+      else  echo -en "Waiting for web-server (${target_ip_address}) response ";
             until curl --head --silent --location \
                        --connect-timeout 10 http://${target_ip_address} \
                   | grep -q "200 OK"; do
               printf "."; sleep 5;
-            done;
+            done; echo -e;
             curl --head --silent --location \
                  --connect-timeout 10 \
                  http://${target_ip_address} || echo "Request failed";
@@ -250,30 +242,268 @@ function webserver_response () {
     return 0;
   }; alias webserver-response='webserver_response';
 
+function autoscaler_inspect () {
+    ## Fetch autoscaler data via API instead of broken gcloud CLI
+    local autoscaler_json=$(
+      curl -s -H "Authorization: Bearer $( gcloud auth print-access-token )" \
+           "https://compute.googleapis.com/compute/v1/projects/${project_id}/regions/${instance_group_region}/autoscalers" \
+      | jq -c ".items[] | select(.target | contains(\"${instance_group_name}\"))"
+    );
+    ## Extract autoscaler name
+    local autoscaler_name=$(jq -r '.name' <<< "${autoscaler_json}");
+    if [[ -z "${autoscaler_name}" ]]; then
+      echo -e "${liner}No autoscaler found targeting instance group: ${instance_group_name}\n";
+      return 0;
+    fi;
+    # {
+    #   "kind": "compute#autoscaler",
+    #   "id": "2404148487240896963",
+    #   "creationTimestamp": "2025-03-26T23:24:44.142-07:00",
+    #   "name": "dev--web-autoscaler",
+    #   "target": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/instanceGroupManagers/dev--web-servers-group",
+    #   "autoscalingPolicy": {
+    #     "minNumReplicas": 1,
+    #     "maxNumReplicas": 4,
+    #     "coolDownPeriodSec": 60,
+    #     "cpuUtilization": {
+    #       "utilizationTarget": 0.6,
+    #       "predictiveMethod": "NONE"
+    #     },
+    #     "mode": "ON"
+    #   },
+    #   "region": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/<project-name>/regions/us-west2/autoscalers/dev--web-autoscaler",
+    #   "status": "ACTIVE",
+    #   "recommendedSize": 1
+    # }
+    if [[ -n "${autoscaler_json}" ]]; then
+      ## Log command used
+      local command="curl -H \"Authorization: Bearer ***\" https://compute.googleapis.com/compute/v1/projects/${project_id}/regions/${instance_group_region}/autoscalers/${autoscaler_name}";
+      echo -e "${liner}Autoscaler Configuration: ${autoscaler_name}\n${command}\n";
+      ## Show JSON
+      jq . <<< "${autoscaler_json}";
+      ## Extract values
+      echo -e "\nMin Replicas: $(jq -r '.autoscalingPolicy.minNumReplicas' <<< "${autoscaler_json}")";
+      echo -e "Max Replicas: $(jq -r '.autoscalingPolicy.maxNumReplicas' <<< "${autoscaler_json}")";
+      echo -e "Cooldown:     $(jq -r '.autoscalingPolicy.coolDownPeriodSec' <<< "${autoscaler_json}")";
+      echo -e "CPU Target:   $(jq -r '.autoscalingPolicy.cpuUtilization.utilizationTarget' <<< "${autoscaler_json}")";
+    fi;
+    return 0;
+  }; alias autoscaler-inspect='autoscaler_inspect';
+
+function psa_inspect () {
+    local psa_range_name=$(
+      gcloud compute addresses list \
+             --project="${project_id}" \
+             --global \
+             --filter="purpose=VPC_PEERING" \
+             --format="value(name)" | head -n1
+    );
+    local psa_range_json=$(
+      gcloud compute addresses \
+             describe "${psa_range_name}" \
+             --global \
+             --project="${project_id}" \
+             --format="${output_format}" 2>/dev/null || echo ""
+    );
+    # {
+    #   "address": "10.219.0.0",
+    #   "addressType": "INTERNAL",
+    #   "creationTimestamp": "2025-03-26T23:24:09.469-07:00",
+    #   "description": "",
+    #   "id": "6155104956262732262",
+    #   "kind": "compute#address",
+    #   "labelFingerprint": "vezUS-42LLM=",
+    #   "labels": {
+    #     "goog-terraform-provisioned": "true"
+    #   },
+    #   "name": "dev--cloudsql-psa-range",
+    #   "network": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/global/networks/dev--webapp-vpc",
+    #   "networkTier": "PREMIUM",
+    #   "prefixLength": 16,
+    #   "purpose": "VPC_PEERING",
+    #   "selfLink": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/global/addresses/dev--cloudsql-psa-range",
+    #   "status": "RESERVED"
+    # }
+    if [[ -n "${psa_range_json}" ]]; then
+            local command="gcloud compute addresses describe ${psa_range_name} --global --project=${project_id} --format=${output_format}";
+            echo -e "${liner}Reserved PSA IP Range: ${psa_range_name}\n${command}\n";
+            jq . <<< "${psa_range_json}";
+            echo -e "\nAddress Type: $( jq -r '.addressType' <<< "${psa_range_json}" )";
+            echo -e "Prefix Length: $( jq -r '.prefixLength' <<< "${psa_range_json}" )";
+            echo -e "Purpose: $( jq -r '.purpose' <<< "${psa_range_json}" )";
+            echo -e "Network: $( jq -r '.network' <<< "${psa_range_json}" )";
+      else  echo -e "${liner}No reserved PSA IP range found in project: ${project_id}\n";
+            return 0;
+    fi;
+    ## Extract network name from full URL
+    local network_url=$( jq -r '.network' <<< "${psa_range_json}" );
+    local network_name=$( basename "${network_url}" );
+    ## Check for active PSA connection (VPC peering)
+    local psa_peering_json=$(
+      gcloud services vpc-peerings list \
+             --network="${network_name}" \
+             --project="${project_id}" \
+             --format="${output_format}" 2>/dev/null || echo ""
+    );
+    # [
+    #   {
+    #     "network": "projects/776293755095/global/networks/dev--webapp-vpc",
+    #     "peering": "servicenetworking-googleapis-com",
+    #     "reservedPeeringRanges": [
+    #       "dev--cloudsql-psa-range"
+    #     ],
+    #     "service": "services/servicenetworking.googleapis.com"
+    #   }
+    # ]
+    if [[ -n "${psa_peering_json}" && "${psa_peering_json}" != "[]" ]]; then
+            local command="gcloud services vpc-peerings list --network=${network_name} --project=${project_id} --format=${output_format}";
+            echo -e "${liner}PSA VPC Peering Connections\n${command}\n";
+            jq . <<< "${psa_peering_json}";
+      else  echo -e "${liner}No active VPC peering connections found.\n";
+    fi;
+    return 0;
+}; alias psa-inspect='psa_inspect';
+
+function instance_groups () {
+    local instance_data__json=$(
+      gcloud compute instance-groups \
+             list-instances "${instance_group_name}" \
+             --region="${instance_group_region}" \
+             --format=${output_format}
+    );
+    echo "${instance_data__json}" | jq -r '.[].instance' \
+    | while read -r instance_url; do
+      instance_zone=$(
+        echo "${instance_url}" | cut -d'/' -f9
+      );
+      instance_name=$(
+        echo "${instance_url}" | cut -d'/' -f11
+      );
+      echo -e "\nInstance: ${instance_name} (${instance_zone})";
+      gcloud compute instances \
+             describe "${instance_name}" \
+             --zone="${instance_zone}" \
+             --format=${output_format} \
+      | jq .;
+      # {
+      #   "cpuPlatform": "Intel Broadwell",
+      #   "creationTimestamp": "2025-03-26T23:24:40.125-07:00",
+      #   "deletionProtection": false,
+      #   "disks": [
+      #     {
+      #       "architecture": "X86_64",
+      #       "autoDelete": true,
+      #       "boot": true,
+      #       "deviceName": "persistent-disk-0",
+      #       "diskSizeGb": "10",
+      #       "guestOsFeatures": [
+      #         {
+      #           "type": "UEFI_COMPATIBLE"
+      #         },
+      #         {
+      #           "type": "VIRTIO_SCSI_MULTIQUEUE"
+      #         },
+      #         {
+      #           "type": "GVNIC"
+      #         }
+      #       ],
+      #       "index": 0,
+      #       "interface": "SCSI",
+      #       "kind": "compute#attachedDisk",
+      #       "licenses": [
+      #         "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/licenses/debian-11-bullseye"
+      #       ],
+      #       "mode": "READ_WRITE",
+      #       "source": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/zones/us-west2-a/disks/web-server-zk22",
+      #       "type": "PERSISTENT"
+      #     }
+      #   ],
+      #   "fingerprint": "FRiHEmGK2po=",
+      #   "id": "4819576397306089928",
+      #   "kind": "compute#instance",
+      #   "labelFingerprint": "vezUS-42LLM=",
+      #   "labels": {
+      #     "goog-terraform-provisioned": "true"
+      #   },
+      #   "lastStartTimestamp": "2025-03-26T23:24:53.522-07:00",
+      #   "machineType": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/zones/us-west2-a/machineTypes/e2-micro",
+      #   "metadata": {
+      #     "fingerprint": "WHwKTwURN_s=",
+      #     "items": [
+      #       {
+      #         "key": "instance-template",
+      #         "value": "projects/776293755095/global/instanceTemplates/dev--web-server-template--20250327062420981900000001"
+      #       },
+      #       {
+      #         "key": "created-by",
+      #         "value": "projects/776293755095/regions/us-west2/instanceGroupManagers/dev--web-servers-group"
+      #       },
+      #       {
+      #         "key": "startup-script",
+      #         "value": "#!/bin/bash\n\n# File: /scripts/setup-webserver.shell\n# Version: 0.1.0\n\n# Update package lists\nsudo apt update -y;\n\n# Install Apache web server\nsudo apt install -y apache2;\n\n# Start and enable Apache\nsudo systemctl start apache2;\nsudo systemctl enable apache2;\n\n# Create a simple HTML page to verify the instance is running\necho -e \"<h1>Server $(hostname) is running behind ALB</h1>\" \\\n   | sudo tee /var/www/html/index.html;\n"
+      #       },
+      #       {
+      #         "key": "ssh-keys",
+      #         "value": "devops_workflows:ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLN08AwnkWbXEfWYuxqA6ea4bBT0jXdi+sNtYNzVzNqN3EiLWKu41ZqohpoctU9yCLmMEFOhp4AnlaJ2J/28g9s= google-ssh {\"userName\":\"devops.workflows@gmail.com\",\"expireOn\":\"2025-03-27T06:31:14+0000\"}\ndevops_workflows:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAHnZB++Oag5eOrncWT5Eu7jNVLqGIIvOYtFypbSec3P2GF1hSHtlZB8NnBu1xsOzI+2b6O2FP9jOEFpnbDNhAGV+Pez1U0CXKWqYZkJAs4gLCMw92n91ciIid7DobPDh32osQ8CxT4n7l6cQBPYyfKtPnJ2AMRb6QBYRcxVE4mbc1s8la8JAgx3bQ4zDCuUIQ8+Cx4U8KoYzcOoDFkHWzCOMEdhOrHWnZW299rWZV2OJkoJJFb/4WWbA3I730qShbcCFCzrn+kwULuD1/AAA2QsrZvCRrPmSw2qVimT4uQrOt1YNUKpn3ftWcvSgAWdrfpL4DlQkJZgS55szK7KT5DM= google-ssh {\"userName\":\"devops.workflows@gmail.com\",\"expireOn\":\"2025-03-27T06:31:18+0000\"}"
+      #       }
+      #     ],
+      #     "kind": "compute#metadata"
+      #   },
+      #   "name": "web-server-zk22",
+      #   "networkInterfaces": [
+      #     {
+      #       "fingerprint": "4qv2A2QIuqU=",
+      #       "kind": "compute#networkInterface",
+      #       "name": "nic0",
+      #       "network": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/global/networks/dev--webapp-vpc",
+      #       "networkIP": "10.0.1.2",
+      #       "stackType": "IPV4_ONLY",
+      #       "subnetwork": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/regions/us-west2/subnetworks/dev--webapp-subnet"
+      #     }
+      #   ],
+      #   "satisfiesPzi": true,
+      #   "scheduling": {
+      #     "automaticRestart": true,
+      #     "onHostMaintenance": "MIGRATE",
+      #     "preemptible": false,
+      #     "provisioningModel": "STANDARD"
+      #   },
+      #   "selfLink": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/zones/us-west2-a/instances/web-server-zk22",
+      #   "shieldedInstanceConfig": {
+      #     "enableIntegrityMonitoring": true,
+      #     "enableSecureBoot": false,
+      #     "enableVtpm": true
+      #   },
+      #   "shieldedInstanceIntegrityPolicy": {
+      #     "updateAutoLearnPolicy": true
+      #   },
+      #   "startRestricted": false,
+      #   "status": "RUNNING",
+      #   "tags": {
+      #     "fingerprint": "IMYPDi8hCX8=",
+      #     "items": [
+      #       "couchsurfing",
+      #       "http-server",
+      #       "ssh-access"
+      #     ]
+      #   },
+      #   "zone": "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/zones/us-west2-a"
+      # }
+    done;
+    return 0;
+  }; alias instance-groups='instance_groups';
+
+#-------------------------------------------------------------------------------
+
 forwarding_rules;
-  echo -e;
-  echo -e "External IP: ${target_ip_address}";
-  echo -e "Target Proxy: ${target_proxy_name}";
-
 target_http_proxies;
-  echo -e;
-  echo -e "URL Map: ${url_map_name}";
-
 url_maps;
-  echo -e;
-  echo -e "Backend Service: ${backend_service_name}";
-
 backend_services;
-  echo -e;
-  echo -e "Group Instance: ${instance_group_name}";
-  echo -e "Group Zone: ${instance_group_zone}";
-
 health_status;
-  echo -e;
-  echo -e "Health Status - State: ${health_status_state}";
-
 webserver_response;
-
+autoscaler_inspect;
+psa_inspect;
 instance_groups;
 
 echo -e "\nCompleted the Application Load Balancer inspection.\n";

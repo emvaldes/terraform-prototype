@@ -6,49 +6,59 @@ terraform {
 }
 
 locals {
-  config      = jsondecode(file("${path.root}/project.json"))
-  allowed_ips = jsondecode(file("${path.root}/allowed.json"))
-  targets     = jsondecode(file("${path.root}/workspaces.json"))
+  project    = jsondecode(file("${path.root}/project.json"))
+  allowed    = jsondecode(file("${path.root}/allowed.json"))
+  workspaces = jsondecode(file("${path.root}/workspaces.json"))
+
+  services = local.project.services
 
   workspace = lookup(
-    local.targets.targets,
+    local.workspaces.targets,
     terraform.workspace,
-    local.targets.targets[local.targets.default]
+    local.workspaces.targets[local.workspaces.default]
   )
+
 }
 
 module "networking" {
-  source = "./modules/gcp/networking"
-  region = local.workspace.region
+  source         = "./modules/gcp/networking"
+  region         = local.workspace.region
+  gcp_project_id = var.gcp_project_id
 }
 
 module "load_balancer" {
   source                    = "./modules/gcp/load_balancer"
-  region                    = local.workspace.region
   network                   = module.networking.vpc_network_id
   subnetwork                = module.networking.subnet_id
   instance_group            = module.compute.web_servers_group
-  http_forwarding_rule_name = local.workspace.services.http_forwarding.name
-  web_backend_service_name  = local.workspace.services.web_backend.name
-  http_health_check_name    = local.workspace.services.health_check.name
+  region                    = local.workspace.region
+  http_forwarding_rule_name = local.services.http_forwarding.name
+  web_backend_service_name  = local.services.web_backend.name
+  http_health_check_name    = local.services.health_check.name
 }
 
 module "compute" {
-  source          = "./modules/gcp/compute"
-  region          = local.workspace.region
-  instance_count  = local.workspace.count
-  instance_type   = local.workspace.type
-  gcp_credentials = var.gcp_credentials
-  network         = module.networking.vpc_network_id
-  subnetwork      = module.networking.subnet_id
-  gcp_project_id  = var.gcp_project_id
+  source                  = "./modules/gcp/compute"
+  network                 = module.networking.vpc_network_id
+  subnetwork              = module.networking.subnet_id
+  region                  = local.workspace.region
+  instance_count          = local.workspace.count
+  instance_type           = local.workspace.type
+  web_autoscaler_name     = local.services.autoscaler.name
+  autoscaler_min_replicas = local.services.autoscaler.min
+  autoscaler_max_replicas = local.services.autoscaler.max
+  autoscaler_cpu_target   = local.services.autoscaler.cpu_target
+  autoscaler_cooldown     = local.services.autoscaler.cooldown
+  http_health_check_name  = local.services.health_check.name
+  gcp_credentials         = var.gcp_credentials
+  gcp_project_id          = var.gcp_project_id
 }
 
 module "firewall" {
   source      = "./modules/gcp/firewall"
-  region      = local.workspace.region
   network     = module.networking.vpc_network_id
-  devops_ips  = local.allowed_ips.devops_ips
-  private_ips = local.allowed_ips.private_ips
-  console_ips = local.allowed_ips.console_ips
+  region      = local.workspace.region
+  devops_ips  = local.allowed.devops_ips
+  private_ips = local.allowed.private_ips
+  console_ips = local.allowed.console_ips
 }

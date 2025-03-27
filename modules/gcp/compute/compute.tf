@@ -16,7 +16,7 @@ data "google_compute_zones" "available" {
 
 # Create an instance template for web servers
 resource "google_compute_instance_template" "web_server" {
-  name_prefix  = "web-server-template--"
+  name_prefix  = "${terraform.workspace}--web-server-template--"
   machine_type = var.instance_type
   region       = var.region
 
@@ -45,7 +45,7 @@ resource "google_compute_instance_template" "web_server" {
 
 # Create a Managed Instance Group (MIG) that distributes instances across available zones
 resource "google_compute_region_instance_group_manager" "web_servers" {
-  name               = "web-servers-group"
+  name               = "${terraform.workspace}--web-servers-group"
   base_instance_name = "web-server"
   region             = var.region
 
@@ -59,9 +59,41 @@ resource "google_compute_region_instance_group_manager" "web_servers" {
   target_size = var.instance_count
 }
 
+# resource "google_compute_region_autoscaler" "web_autoscaler" {
+#   name   = "${terraform.workspace}--web-autoscaler"
+#   region = var.region
+#   target = google_compute_region_instance_group_manager.web_servers.id
+#
+#   autoscaling_policy {
+#     max_replicas    = 5
+#     min_replicas    = 1
+#     cooldown_period = 60
+#
+#     cpu_utilization {
+#       target = 0.6
+#     }
+#   }
+# }
+
+resource "google_compute_region_autoscaler" "web_autoscaler" {
+  name   = "${terraform.workspace}--${var.web_autoscaler_name}"
+  region = var.region
+  target = google_compute_region_instance_group_manager.web_servers.id
+
+  autoscaling_policy {
+    max_replicas    = var.autoscaler_max_replicas # Prevent over-scaling and keep cost predictable
+    min_replicas    = var.autoscaler_min_replicas # Ensure at least one instance is always running
+    cooldown_period = var.autoscaler_cooldown     # Wait 60s after scaling before triggering again—reduces oscillation
+
+    cpu_utilization {
+      target = var.autoscaler_cpu_target # Scale out when average CPU exceeds 60% (default is 0.6 in GCP docs)
+    }
+  }
+}
+
 # Define a health check to ensure instances are healthy before being routed traffic
 resource "google_compute_health_check" "http" {
-  name               = "http-health-check-${var.region}" # Unique name per region
+  name               = "${terraform.workspace}--${var.http_health_check_name}-${var.region}" # Unique name per region
   check_interval_sec = 5
   timeout_sec        = 5
 
@@ -83,11 +115,6 @@ resource "google_compute_health_check" "http" {
 #     }
 #   }
 #
-#   # network_interface {
-#   #   network    = google_compute_network.vpc_network.id
-#   #   subnetwork = google_compute_subnetwork.subnet.id
-#   #   access_config {} # Assigns a public IP
-#   # }
 #   network_interface {
 #     network    = var.network
 #     subnetwork = var.subnetwork

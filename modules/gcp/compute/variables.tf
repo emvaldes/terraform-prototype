@@ -39,3 +39,35 @@ variable "subnetwork" {
   description = "Subnet ID"
   type        = string
 }
+
+variable "web_autoscaler_name" {
+  description = "Custom name for the Regional Autoscaler resource"
+  type        = string
+  default     = ""
+}
+
+variable "autoscaler_min_replicas" {
+  description = "Minimum number of instances in the autoscaler group"
+  type        = number
+}
+
+variable "autoscaler_max_replicas" {
+  description = "Maximum number of instances in the autoscaler group"
+  type        = number
+}
+
+variable "autoscaler_cpu_target" {
+  description = "Target CPU utilization for autoscaling"
+  type        = number
+}
+
+variable "autoscaler_cooldown" {
+  description = "Cooldown period in seconds for the autoscaler"
+  type        = number
+}
+
+variable "http_health_check_name" {
+  description = "Custom name for the HTTP Health Check resource"
+  type        = string
+  default     = "http-health-check"
+}

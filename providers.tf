@@ -12,6 +12,6 @@ terraform {
 # }
 
 provider "google" {
-  project = local.config.gcp.project
+  project = local.project.gcp.project
   region  = local.workspace.region
 }

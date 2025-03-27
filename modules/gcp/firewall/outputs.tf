@@ -2,16 +2,16 @@
 # Version: 0.1.0
 
 output "devops_ips" {
-  description = "DevOps public IPs from allowed.json"
+  description = "DevOps Remote IPs"
   value       = var.devops_ips
 }
 
 output "private_ips" {
-  description = "Private IPs"
+  description = "Private Internal IPs"
   value       = var.private_ips
 }
 
 output "console_ips" {
-  description = "Console IPs"
+  description = "GCP Console IPs"
   value       = var.console_ips
 }

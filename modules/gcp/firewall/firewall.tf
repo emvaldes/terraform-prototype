@@ -2,7 +2,7 @@
 # Version: 0.1.0
 
 resource "google_compute_firewall" "allow_ssh" {
-  name    = "allow-ssh-restricted"
+  name    = "${terraform.workspace}--allow-ssh-restricted"
   network = var.network
   # network = google_compute_network.vpc_network.name
 
@@ -22,7 +22,7 @@ resource "google_compute_firewall" "allow_ssh" {
 }
 
 resource "google_compute_firewall" "allow_ssh_iap" {
-  name    = "allow-ssh-iap"
+  name    = "${terraform.workspace}--allow-ssh-iap"
   network = var.network
   # network = google_compute_network.vpc_network.name
 
@@ -38,7 +38,7 @@ resource "google_compute_firewall" "allow_ssh_iap" {
 }
 
 resource "google_compute_firewall" "allow_http_https" {
-  name    = "allow-http-https"
+  name    = "${terraform.workspace}--allow-http-https"
   network = var.network
   # network = google_compute_network.vpc_network.name
 
