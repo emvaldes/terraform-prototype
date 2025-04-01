@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# File: scripts/manage/gloud-presets.shell
+# Version: 0.1.0
+
+# Description:
+#   Ensures required Google Cloud APIs are enabled and access permissions are set
+#   for HTTP-triggered Cloud Functions v2 (Cloud Run-based).
+#   This is safe to run multiple times (idempotent).
+
+set -euo pipefail
+
+PROJECT_ID="${GCP_PROJECT_ID:-static-lead-454601-q1}"
+REGION="${REGION:-us-west2}"
+SERVICE_NAME="${CLOUD_FUNCTION_NAME:-dev--webapp-stress-tester}"
+TIMEOUT=60
+
+REQUIRED_APIS=(
+  cloudfunctions.googleapis.com
+  cloudbuild.googleapis.com
+  eventarc.googleapis.com
+  run.googleapis.com
+)
+
+echo "Project: $PROJECT_ID"
+echo "Region:  $REGION"
+echo "Function: $SERVICE_NAME"
+echo ""
+
+enable_api() {
+  local api=$1
+  echo "➡️  Ensuring API enabled: $api"
+  if ! gcloud services list --enabled --project="$PROJECT_ID" | grep -q "$api"; then
+    gcloud services enable "$api" --project="$PROJECT_ID"
+    echo "Waiting for $api to activate..."
+    for i in $(seq 1 "$TIMEOUT"); do
+      sleep 2
+      if gcloud services list --enabled --project="$PROJECT_ID" | grep -q "$api"; then
+        echo "API enabled: $api"
+        return
+      fi
+    done
+    echo "Timeout waiting for API: $api"
+    exit 1
+  else
+    echo "Already enabled: $api"
+  fi
+}
+
+for api in "${REQUIRED_APIS[@]}"; do
+  enable_api "$api"
+done
+
+echo ""
+echo "Checking Cloud Run public access for: $SERVICE_NAME"
+
+if gcloud run services get-iam-policy "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" \
+  | grep -q "allUsers.*roles/run.invoker"; then
+  echo "Public access already granted"
+else
+  echo "Granting public invoker permission..."
+  gcloud run services add-iam-policy-binding "$SERVICE_NAME" \
+    --region "$REGION" \
+    --project "$PROJECT_ID" \
+    --member="allUsers" \
+    --role="roles/run.invoker"
+  echo "Public access granted"
+fi
+
+echo ""
+echo "Prerequisites completed. You may now deploy and invoke the Cloud Function."

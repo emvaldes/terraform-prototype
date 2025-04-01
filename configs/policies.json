@@ -1,0 +1,47 @@
+{
+    "storage": {
+        "bucket": {
+            "name": "multi-cloud-terraform-state"
+        }
+    },
+    "stressload": {
+        "levels": {
+            "low": {
+                "duration": 90,
+                "threads": 10,
+                "interval": 0.1,
+                "requests": 1000
+            },
+            "medium": {
+                "duration": 150,
+                "threads": 50,
+                "interval": 0.1,
+                "requests": 10000
+            },
+            "high": {
+                "duration": 240,
+                "threads": 100,
+                "interval": 0.1,
+                "requests": 100000
+            }
+        },
+        "logging": {
+            "log_file": "./logs/stressload.log",
+            "log_format": "%(asctime)s - %(levelname)s - %(message)s"
+        }
+    },
+    "profiles": {
+        "service": {
+            "read_only": {
+                "name": "ro--service-account",
+                "caption": "Service Account (Read Only)"
+            }
+        },
+        "cloud_function": {
+            "read_only": {
+                "name": "ro--cloud-function",
+                "caption": "Cloud Function SA (Stress Test)"
+            }
+        }
+    }
+}

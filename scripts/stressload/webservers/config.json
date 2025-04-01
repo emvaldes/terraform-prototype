@@ -1,0 +1,13 @@
+{
+  "target_url": "http://34.107.252.198",
+  "project_id": "static-lead-454601-q1",
+  "region": "us-west2",
+  "mig_name": "dev--web-servers-group",
+  "autoscaler_name": "dev--web-autoscaling",
+  "log_level": "info",
+  "stress_duration_seconds": 90,
+  "stress_concurrency": 10,
+  "request_sleep_interval": 0.1,
+  "autoscaler_min_replicas": 1,
+  "autoscaler_max_replicas": 3
+}

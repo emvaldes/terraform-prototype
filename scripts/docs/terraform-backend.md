@@ -1,7 +1,7 @@
 # Terraform Backend Bootstrap Script
 
 ## File
-`scripts/setup-backend.shell`
+`./scripts/manage/terraform-backend.shell`
 
 ## Version
 `0.1.0`
@@ -93,31 +93,31 @@ These must be present in the same directory as the script.
 ### ✔️ Bucket Check (default)
 Checks whether the Terraform backend bucket exists:
 ```bash
-./scripts/setup-backend.shell
+./scripts/manage/terraform-backend.shell
 ```
 
 ### Bucket Creation
 Creates the backend bucket with versioning, regional placement, and uniform access:
 ```bash
-./scripts/setup-backend.shell --create
+./scripts/manage/terraform-backend.shell --create
 ```
 
 ### Download Remote State Files
 Fetches `.tfstate` files for each workspace and stores them in `local-state/<workspace>.tfstate`:
 ```bash
-./scripts/setup-backend.shell --download
+./scripts/manage/terraform-backend.shell --download
 ```
 
 ### Destroy Bucket
 Backs up all workspace states locally, confirms with a 10-second prompt, and deletes the bucket:
 ```bash
-./scripts/setup-backend.shell --destroy
+./scripts/manage/terraform-backend.shell --destroy
 ```
 
 ### Describe Bucket
 Returns JSON describing the bucket’s current configuration:
 ```bash
-./scripts/setup-backend.shell --config
+./scripts/manage/terraform-backend.shell --config
 ```
 
 ---

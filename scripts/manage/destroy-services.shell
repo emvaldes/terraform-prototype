@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# File: scripts/destroy-infrastructure.shell
+# File: ./scripts/manage/destroy-services.shell
 # Version: 0.1.0
 
 set -euo pipefail

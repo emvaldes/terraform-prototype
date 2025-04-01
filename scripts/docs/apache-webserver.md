@@ -1,7 +1,7 @@
 # Web Server Bootstrap Script
 
 ## File
-`scripts/setup-webserver.shell`
+`./scripts/configure/apache-webserver.shell`
 
 ## Version
 `0.1.0`
@@ -37,7 +37,7 @@ The most common usage is as a startup script in an instance template:
 
 ```hcl
 metadata = {
-  startup-script = file("${path.module}/scripts/setup-webserver.shell")
+  startup-script = file("${path.module}/scripts/configure/apache-webserver.shell")
 }
 ```
 
@@ -47,8 +47,8 @@ This configuration ensures the script runs automatically when new instances are 
 You can also run the script manually for local testing or remote configuration:
 
 ```bash
-chmod +x setup-webserver.shell
-./setup-webserver.shell
+chmod +x ./scripts/configure/apache-webserver.shell
+./scripts/configure/apache-webserver.shell
 ```
 
 This approach is useful for manually reprovisioned environments or SSH-based debugging workflows.
@@ -84,7 +84,7 @@ This output is particularly helpful when testing load balancing behavior, such a
 
 ## Summary
 
-The `setup-webserver.shell` script provides a lightweight, reliable mechanism for standing up Apache web servers across GCP-managed VM instances. It is designed to be infrastructure-safe, restart-tolerant, and cloud-native in behavior.
+The `./scripts/configure/apache-webserver.shell` script provides a lightweight, reliable mechanism for standing up Apache web servers across GCP-managed VM instances. It is designed to be infrastructure-safe, restart-tolerant, and cloud-native in behavior.
 
 Its primary utility lies in providing visual, programmatic confirmation that backend compute infrastructure is alive, accessible, and correctly configured behind a Google Cloud Load Balancer. Whether you’re building production-ready services or standing up demo environments, this script ensures that your instances are ready to serve traffic from the moment they come online.
 

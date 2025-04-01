@@ -1,0 +1,14 @@
+{
+    "target": "staging",
+    "region": "central",
+    "type": "medium",
+    "policies": {
+        "autoscaling": {
+            "min": 2,
+            "max": 4,
+            "threshold": 0.65,
+            "cooldown": 90
+        },
+        "stressload": "medium"
+    }
+}

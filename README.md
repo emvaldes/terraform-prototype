@@ -39,9 +39,9 @@ This framework provisionally supports ephemeral environments, enforces workspace
   - No `0.0.0.0/0` exposure; enforced in code
 
 - **Shell Script Automation:**
-  - `setup-backend.shell`: Handles backend bucket initialization and optional state recovery
-  - `setup-webserver.shell`: Dynamically provisions VM environments for HTTP load testing
-  - `inspect-services.shell`: Enumerates ALB configs, backend services, health checks
+  - `./scripts/manage/terraform-backend.shell`: Handles backend bucket initialization and optional state recovery
+  - `./scripts/configure/apache-webserver.shell`: Dynamically provisions VM environments for HTTP load testing
+  - `./scripts/manage/inspect-services.shell`: Enumerates ALB configs, backend services, health checks
   - All scripts support execution flag expansion and verbose tracing
 
 - **CI/CD GitHub Workflow Integration:**
@@ -61,7 +61,7 @@ This framework provisionally supports ephemeral environments, enforces workspace
 
 ## Infrastructure Components
 
-### 1. **Compute Layer** (`compute.tf`, `setup-webserver.shell`)
+### 1. **Compute Layer** (`compute.tf`, `scrits/configure/apache-webserver.shell`)
 - Manages lifecycle of VM instances across GCP regions
 - Instance names, sizes, and replica counts sourced from `workspaces.json`
 - Designed to integrate with GCP health checks and managed instance groups
@@ -71,7 +71,7 @@ This framework provisionally supports ephemeral environments, enforces workspace
 - Subnet definitions scoped per region
 - Firewall ingress and egress rules enforced from `allowed.json` inputs
 
-### 3. **Load Balancing** (`router.tf`, `inspect-services.shell`)
+### 3. **Load Balancing** (`router.tf`, `./scripts/manage/inspect-services.shell`)
 - Instantiates HTTP(S) Global Load Balancer components:
   - Global forwarding rule
   - Target proxy
@@ -84,7 +84,7 @@ This framework provisionally supports ephemeral environments, enforces workspace
 - Ensures egress connectivity for patching, installation, and monitoring
 - Cloud router setup is fully automated
 
-### 5. **State Management** (`setup-backend.shell`, `backend.tf`, `project.json`)
+### 5. **State Management** (`./scripts/manage/terraform-backend.shell`, `backend.tf`, `project.json`)
 - Validates bucket existence or creates it securely using `gsutil`
 - When `destroy` is run, conditionally downloads remote state to `.local/`
 - Supports state file introspection and traceability via artifacts
@@ -180,17 +180,16 @@ Defined in `outputs.tf` and printed after `apply`, these include:
 ## Directory & File Layout
 
 ```console
-./
 ├── .github/
 │   └── workflows/
 │       ├── README.md
 │       └── terraform.yaml
 ├── .gitignore
 ├── .local/
-│   ├── .DS_Store
 │   ├── dev-tfplan.binary
 │   └── dev-tfplan.json
 ├── .terraform/
+│   ├── environment
 │   ├── modules/
 │   │   └── modules.json
 │   ├── providers/
@@ -207,9 +206,23 @@ Defined in `outputs.tf` and printed after `apply`, these include:
 ├── README.md
 ├── allowed.json
 ├── backend.tf
+├── configs/
+│   ├── policies.json
+│   ├── project/
+│   │   ├── aws.json
+│   │   ├── azure.json
+│   │   └── gcp.json
+│   └── targets/
+│       ├── dev.json
+│       ├── prod.json
+│       └── staging.json
 ├── main.tf
 ├── modules/
 │   └── gcp/
+│       ├── cloud_function/
+│       │   ├── main.tf
+│       │   ├── outputs.tf
+│       │   └── variables.tf
 │       ├── compute/
 │       │   ├── README.md
 │       │   ├── compute.tf
@@ -251,21 +264,30 @@ Defined in `outputs.tf` and printed after `apply`, these include:
 │   │   ├── service-account.json
 │   │   ├── storage-buckets.json
 │   │   └── subnets-listing.json
+│   ├── inspect.console
 │   ├── terraform.apply
 │   ├── terraform.destroy
 │   ├── terraform.plan
-│   └── webserver-status.console
+│   └── webserver.console
 ├── scripts/
-│   ├── destroy-cloudinfra.shell*
+│   ├── build/
+│   │   └── stressload-webservers.zip
+│   ├── configure/
+│   │   └── apache-webserver.shell*
 │   ├── docs/
 │   │   ├── inspect-services.md
 │   │   ├── setup-backend.md
 │   │   └── setup-webserver.md
-│   ├── inspect-services.shell*
-│   ├── setup-backend.shell*
-│   └── setup-webserver.shell*
-├── variables.tf
-└── workspaces.json
+│   ├── manage/
+│   │   ├── destroy-services.shell*
+│   │   ├── inspect-services.shell*
+│   │   ├── package-functions.shell*
+│   │   └── terraform-backend.shell*
+│   └── stressload/
+│       └── webservers/
+│           ├── main.py
+│           └── requirements.txt
+└── variables.tf
 ```
 
 ---

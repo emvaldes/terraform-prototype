@@ -1,0 +1,135 @@
+{
+    "provider": "gcp",
+    "project": "static-lead-454601-q1",
+    "credentials": "",
+    "regions": {
+        "west": "us-west2",
+        "central": "us-central2",
+        "east": "us-east2"
+    },
+    "types": {
+        "micro": "e2-micro",
+        "medium": "e2-medium",
+        "standard": "n1-standard-1"
+    },
+    "services": {
+        "cloud_function": {
+          "name": "webapp-stress-tester",
+          "description": "Stub Cloud Function for stress testing framework",
+          "entry_point": "main",
+          "runtime": "python311",
+          "memory": "256M",
+          "timeout": 60,
+          "bucket_name": "cloud-function-bucket",
+          "archive_path": "./packages",
+          "archive_name": "stressload-webservers.zip",
+          "force_destroy": true,
+          "env": {
+            "TARGET_URL": ""
+          },
+          "event_type": "google.cloud.functions.v2.eventTypes.EVENT_TRIGGERED",
+          "pubsub_topic": null,
+          "invoker_role": "roles/cloudfunctions.invoker",
+          "invoker_member": "allUsers"
+        },
+        "compute_resources": {
+          "instance_template_name_prefix": "web-server-template--",
+          "instance_group_name": "web-servers-group",
+          "base_instance_name": "web-server",
+          "source_image": "debian-cloud/debian-11",
+          "startup_script_path": "./scripts/configure/apache-webserver.shell",
+          "instance_tags": [
+            "ssh-access",
+            "http-server"
+          ],
+          "health_check": {
+            "name": "http-health-check",
+            "interval": 5,
+            "timeout": 5,
+            "port": 80
+          }
+        },
+        "firewall_rules": {
+          "allow_ssh": {
+            "name": "allow-ssh-restricted",
+            "protocol": "tcp",
+            "ports": ["22"],
+            "target_tags": ["ssh-access"]
+          },
+          "allow_ssh_iap": {
+            "name": "allow-ssh-iap",
+            "protocol": "tcp",
+            "ports": ["22"],
+            "target_tags": ["ssh-access"]
+          },
+          "allow_http_https": {
+            "name": "allow-http-https",
+            "protocol": "tcp",
+            "ports": ["80", "443"]
+          },
+          "public_http_ranges": ["0.0.0.0/0"]
+        },
+        "health_check": {
+            "name": "http-health-check"
+        },
+        "http_forwarding": {
+            "name": "http-forwarding-rule"
+        },
+        "load_balancer": {
+          "http_forwarding": {
+            "name": "http-forwarding-rule",
+            "port_range": "80",
+            "scheme": "EXTERNAL"
+          },
+          "http_proxy": {
+            "name": "web-http-proxy"
+          },
+          "url_map": {
+            "name": "web-url-map"
+          },
+          "web_backend": {
+            "name": "web-backend-service",
+            "protocol": "HTTP",
+            "timeout": 30
+          },
+          "health_check": {
+            "name": "http-health-check",
+            "interval": 5,
+            "timeout": 5,
+            "port": 80
+          }
+        },
+        "networking": {
+          "vpc_network_name": "webapp-vpc",
+          "subnet_name": "webapp-subnet",
+          "subnet_cidr": "10.100.0.0/24",
+          "psa_range_name": "cloudsql-psa-range",
+          "psa_range_prefix_length": 16,
+          "nat": {
+            "router_name": "webapp-router",
+            "config_name": "webapp-nat-config",
+            "nat_logging_filter": "ERRORS_ONLY",
+            "enable_nat_logging": true,
+            "timeouts": {
+              "tcp_established_sec": 1200,
+              "tcp_transitory_sec": 30,
+              "udp_idle_sec": 30,
+              "icmp_idle_sec": 30
+            }
+          },
+          "management": {
+            "enable": false,
+            "vpc_name": "mgmt-vpc",
+            "subnet_name": "mgmt-subnet",
+            "subnet_cidr": "10.90.0.0/24",
+            "private_ip_google_access": true
+          }
+        },
+        "web_autoscaling": {
+            "name": "web-autoscaling"
+        },
+        "web_backend": {
+            "name": "web-backend-service"
+        }
+    }
+}

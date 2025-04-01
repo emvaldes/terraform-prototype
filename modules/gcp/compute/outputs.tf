@@ -6,19 +6,22 @@ output "instance_type" {
   value       = var.instance_type
 }
 
-# Fetch instances from the Regional Managed Instance Group (MIG)
-data "google_compute_region_instance_group_manager" "web_servers" {
-  name    = google_compute_region_instance_group_manager.web_servers.name
-  project = var.gcp_project_id
-  region  = var.region
-}
-
-output "web_server_ip" {
-  description = "Public IPs of the web servers"
-  value       = data.google_compute_region_instance_group_manager.web_servers.instance_group
-}
-
 output "web_servers_group" {
   description = "Instance group for web servers"
   value       = google_compute_region_instance_group_manager.web_servers.instance_group
+}
+
+output "web_server_ip" {
+  description = "Managed instance group URI used as web server backend"
+  value       = google_compute_region_instance_group_manager.web_servers.instance_group
+}
+
+output "instance_template" {
+  description = "The self_link of the created instance template"
+  value       = google_compute_instance_template.web_server.self_link
+}
+
+output "web_autoscaler_name" {
+  description = "Name of the autoscaler resource"
+  value       = google_compute_region_autoscaler.web_autoscaler.name
 }

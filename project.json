@@ -1,62 +1,45 @@
 {
-  "provider": {
     "default": "gcp",
-    "gcp": {
-      "project": "static-lead-454601-q1",
-      "credentials": "",
-      "regions": {
-        "west": "us-west2",
-        "central": "us-central2",
-        "east": "us-east2"
-      },
-      "types": {
-        "micro": "e2-micro",
-        "medium": "e2-medium",
-        "standard": "n1-standard-1"
-      },
-      "services": {
-        "web_autoscaling": {
-          "name": "web-autoscaling"
+    "configs": {
+        "projects": {
+            "path": "./configs/project",
+            "sets": {
+                "aws": "aws.json",
+                "azure": "azure.json",
+                "gcp": "gcp.json"
+            }
         },
-        "http_forwarding": {
-          "name": "http-forwarding-rule"
-        },
-        "web_backend": {
-          "name": "web-backend-service"
-        },
-        "health_check": {
-          "name": "http-health-check"
+        "targets": {
+            "path": "./configs/targets",
+            "sets": {
+                "dev": "dev.json",
+                "prod": "prod.json",
+                "staging": "staging.json"
+            }
         }
-      }
     },
-    "aws": {
-      "credentials": "",
-      "regions": {
-        "west": "us-west-1",
-        "central": "us-central-1",
-        "east": "us-east-1"
-      },
-      "types": {
-        "micro": "t2.micro",
-        "medium": "t3.medium",
-        "standard": "m5.large"
-      }
-    },
-    "azure": {
-      "credentials": "",
-      "regions": {
-        "west": "westus",
-        "central": "centralus",
-        "east": "eastus"
-      },
-      "types": {
-        "micro": "Standard_B1s",
-        "medium": "Standard_B2s",
-        "standard": "Standard_D2s_v3"
-      }
+    "scripts": {
+        "configure": {
+            "apache-webserver": {
+                "path": "./scripts/configure",
+                "script": "apache-webserver.shell"
+            }
+        },
+        "manage": {
+            "inspect-services": {
+                "path": "./scripts/manage",
+                "script": "inspect-services.shell"
+            },
+            "terraform-backend": {
+                "path": "./scripts/manage",
+                "script": "terraform-backend.shell"
+            }
+        },
+        "stressload": {
+            "webservers": {
+                "path": "./scripts/stressload",
+                "script": "stressload-webservers.zip"
+            }
+        }
     }
-  },
-  "storage": {
-    "bucket": "multi-cloud-terraform-state"
-  }
 }

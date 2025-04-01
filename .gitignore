@@ -40,7 +40,11 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-## Including: Python components
+# Ignore Dynamically generated files
+packages/*
+outputs.json
+
+# Including: Python components
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

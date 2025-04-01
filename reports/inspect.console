@@ -1,4 +1,4 @@
-$ ./scripts/inspect-services.shell $( terraform output -raw forwarding_rule_name );
+$ ./scripts/manage/inspect-services.shell $( terraform output -raw forwarding_rule_name );
 
 ================================================================================
 Forwarding Rule Description: dev--http-forwarding-rule
@@ -269,7 +269,7 @@ Instance: web-server-zk22 (us-west2-a)
       },
       {
         "key": "startup-script",
-        "value": "#!/bin/bash\n\n# File: /scripts/setup-webserver.shell\n# Version: 0.1.0\n\n# Update package lists\nsudo apt update -y;\n\n# Install Apache web server\nsudo apt install -y apache2;\n\n# Start and enable Apache\nsudo systemctl start apache2;\nsudo systemctl enable apache2;\n\n# Create a simple HTML page to verify the instance is running\necho -e \"<h1>Server $(hostname) is running behind ALB</h1>\" \\\n   | sudo tee /var/www/html/index.html;\n"
+        "value": "#!/bin/bash\n\n# File: ./scripts/configure/apache-webserver.shell\n# Version: 0.1.0\n\n# Update package lists\nsudo apt update -y;\n\n# Install Apache web server\nsudo apt install -y apache2;\n\n# Start and enable Apache\nsudo systemctl start apache2;\nsudo systemctl enable apache2;\n\n# Create a simple HTML page to verify the instance is running\necho -e \"<h1>Server $(hostname) is running behind ALB</h1>\" \\\n   | sudo tee /var/www/html/index.html;\n"
       },
       {
         "key": "ssh-keys",

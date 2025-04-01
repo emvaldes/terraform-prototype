@@ -91,7 +91,7 @@ All diagnostic outputs are formatted as JSON and printed to the workflow logs fo
 
 ## Terraform Backend Initialization & Workspace Management
 
-- Runs the `scripts/setup-backend.shell` script to ensure the remote state bucket exists
+- Runs the `./scripts/manage/terraform-backend.shell` script to ensure the remote state bucket exists
   - If the bucket is missing, it is created automatically with the `--create` flag
 - Executes `terraform init` to initialize the backend and prepare for operations
 - Manages workspace selection using `terraform workspace select` or `new` to ensure operations are scoped correctly to the desired environment
@@ -116,7 +116,7 @@ The pipeline branches based on the selected `action`:
 
 ### Destroy *(restricted to `dev` only)*
 - Checks if the target environment is `dev` before proceeding
-- Downloads the current remote state via `setup-backend.shell --download`
+- Downloads the current remote state via `./scripts/manage/terraform-backend.shell --download`
 - Uploads the backup state to GitHub as `terraform-state-backup-<run_id>`
 - Executes `terraform destroy` to tear down infrastructure
 
@@ -124,7 +124,7 @@ The pipeline branches based on the selected `action`:
 
 ## Post-Deployment Service Inspection
 
-After a successful `apply`, the workflow executes the `scripts/inspect-services.shell` script with the forwarding rule name as a parameter. This script prints enriched metadata about:
+After a successful `apply`, the workflow executes the `./scripts/manage/inspect-services.shell` script with the forwarding rule name as a parameter. This script prints enriched metadata about:
 - Global forwarding rules
 - Target HTTP proxies
 - URL maps

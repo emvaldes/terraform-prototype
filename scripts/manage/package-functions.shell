@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+
+# File: ./scripts/manage/package-functions.shell
+# Version: 0.1.3
+
+set -euo pipefail ;
+
+function cloud_function_configs() {
+
+    echo -e "\nExtracting Cloud Function configurations (terraform state)..." ;
+
+    env_stress_key="$(echo "${terraform_output}" | jq -r '.stressload_key.value // "low"')"
+    stressload_config="$(echo "${terraform_output}" | jq -r '.stressload_config.value')"
+    log_level="$(echo "${terraform_output}" | jq -r '.stressload_log_level.value')"
+
+    function_name="$(echo "${terraform_output}" | jq -r '.stressload_function_name.value')"
+    function_region="$(echo "${terraform_output}" | jq -r '.stressload_function_region.value')"
+    function_bucket="$(echo "${terraform_output}" | jq -r '.stressload_function_bucket.value')"
+    function_service_account="$(echo "${terraform_output}" | jq -r '.stressload_function_service_account_email.value')"
+
+    # Validate required Terraform outputs
+    required_outputs=(
+      load_balancer_ip
+      gcp_project_id
+      region
+      compute_web_servers_group
+      compute_web_autoscaler_name
+      environment_config
+    )
+
+    for key in "${required_outputs[@]}"; do
+      if ! echo "${terraform_output}" | jq -e "select(.${key} != null and .${key}.value != null)" >/dev/null; then
+        echo -e "Error: Required Terraform Output '${key}' not found." >&2 ;
+        exit 1 ;
+      fi ;
+    done ;
+
+    # Build Cloud Function Configuration with all required keys for the Python script
+    echo -e "${terraform_output}" | jq \
+        --argjson stressload "${stressload_config}" \
+        --arg log_level "${log_level}" \
+      '{
+        target_url:               "http://\(.load_balancer_ip.value)",
+        project_id:               .gcp_project_id.value,
+        region:                   .region.value,
+        mig_name:                 (.compute_web_servers_group.value | split("/") | last),
+        autoscaler_name:          .compute_web_autoscaler_name.value,
+
+        log_level:                $log_level,
+        stress_duration_seconds:  ($stressload.duration // 90),
+        stress_concurrency:       ($stressload.threads // 10),
+        request_sleep_interval:   ($stressload.interval // 0.5),
+
+        autoscaler_min_replicas:  (.environment_config.value.policies.autoscaling.min // 1),
+        autoscaler_max_replicas:  (.environment_config.value.policies.autoscaling.max // 3)
+      }' > "${config_filepath}" ;
+
+    if test -f "${config_filepath}"; then
+            echo -e "Created Config-File:  ${config_filepath}" ;
+            cat "${config_filepath}" ; echo -e ;
+            package_files+=( "${config_filename}" ) ;
+      else  echo -e "Error: Failed to create config file: ${config_filepath}" >&2 ;
+            echo '{}' > "${config_filepath}" ;
+            echo -e "Flushed config: ${config_filepath}" ;
+            exit 1 ;
+    fi ;
+
+    return 0 ;
+  }; alias cloud-function-configs=cloud_function_configs ;
+
+function deploy_cloud_function() {
+
+    echo -e "\nDeploying Cloud Function...\n" ;
+
+    # Extract required values from Terraform output
+    project_id=$(
+      echo "${terraform_output}" | jq -r '.gcp_project_id.value'
+    ) ; echo -e "Project ID: ${project_id}" ;
+    service_account=$(
+      echo "${terraform_output}" | jq -r '.stressload_function_service_account_email.value'
+    ) ; echo -e "Service Account:  ${service_account}" ;
+
+    region=$(
+      echo "${terraform_output}" | jq -r '.region.value'
+    ) ; echo -e "\nFunction Region:  ${region}" ;
+    function_name=$(
+      echo "${terraform_output}" | jq -r '.stressload_function_name.value'
+    ) ; echo -e "Function Name:    ${function_name}" ;
+    bucket=$(
+      echo "${terraform_output}" | jq -r '.stressload_function_bucket.value'
+    ) ; echo -e "Function Bucket:  ${bucket}" ;
+
+    archive=$( basename "${target_package}" ) ;
+    echo -e "\nArchive Filename: ${archive}" ;
+
+    # Upload the zip manually to the bucket
+    archive_bucket="${bucket}/${archive}" ;
+    echo -e "Archive Bucket:   ${archive_bucket}\n" ;
+
+    cd ../ ; # pwd ; echo -e ;
+    gsutil cp "${target_package}" "gs://${archive_bucket}" ;
+
+    # Deploy using Terraform-driven values
+    gcloud functions deploy "${function_name}" \
+          --project="${project_id}" \
+          --region="${region}" \
+          --source="gs://${archive_bucket}" \
+          --runtime="python311" \
+          --entry-point="main" \
+          --trigger-http \
+          --service-account="${service_account}" \
+    ;
+
+    return 0 ;
+  }; alias deploy-cloud-function=deploy_cloud_function ;
+
+# Load full policies config JSON
+policies_filename="policies.json" ;
+input_policies="$( jq '.' ./configs/${policies_filename} )" ;
+
+# jq . <<<  "${input_policies}" || {
+#   echo -e "Error: Failed to load ${policies_filename}" >&2 ;
+#   exit 1 ;
+# }
+
+source_package_path="scripts/stressload/webservers" ;
+source_package_name="stressload-webservers.zip" ;
+
+scripts_packages="packages" ;
+target_package="${scripts_packages}/${source_package_name}" ;
+
+config_filename="config.json" ;
+config_filepath="${source_package_path}/${config_filename}" ;
+
+rm "${config_filepath}" 2>/dev/null || true ;
+
+declare -a package_files=(
+  main.py
+  requirements.txt
+) ;
+
+terraform_output=$( terraform output -json 2>/dev/null ) ;
+
+if [[ ${terraform_output} == '{}' ]]; then
+        echo -e "\nWarning: Failed to get Terraform Outputs. Is the infrastructure deployed?" >&2 ;
+        outputs_enabled=false ;
+  else  echo -e "Terraform outputs extracted." ;
+        # echo -e "Terraform output: $( echo "${terraform_output}" | jq '.' )" ;
+        outputs_enabled=true ;
+        echo -e "${terraform_output}" | jq '.' > ./outputs.json ;
+fi ;
+
+if [[ ${outputs_enabled} == true ]]; then
+        cloud_function_configs ;
+  else  echo -e "         Skipping ${config_filepath} creation! Please run 'terraform apply' first.\n" ;
+fi ;
+
+# Verify all required files exist
+for package_file in "${package_files[@]}"; do
+  if ! test -f "${source_package_path}/${package_file}"; then
+          echo -e "Error: File not found: ${source_package_path}/${package_file}" >&2 ;
+          exit 1 ;
+    else  echo -e "Including: ${source_package_path}/${package_file}" ;
+  fi ;
+done ;
+
+# Create build directory if needed
+mkdir -p "${scripts_packages}" ;
+
+# Clean up previous zip
+[[ -f "${target_package}" ]] && rm -f "${target_package}" ;
+
+# Build the zip archive
+cd "${source_package_path}" ;
+
+echo -e "\nPackaging: [${source_package_path}] ${source_package_name}" ;
+zip "../../../${scripts_packages}/${source_package_name}" "${package_files[@]}" ;
+
+echo -e "\nCreated archive: ${target_package}" ;
+
+cd "../../../${scripts_packages}" ; echo -e ;
+unzip -l "${source_package_name}" ;
+pwd ; echo -e ;
+
+if [[ ${outputs_enabled} == true ]]; then
+  deploy_cloud_function ;
+fi ;
+
+echo -e "\nDone!\n" ;

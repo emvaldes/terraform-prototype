@@ -15,6 +15,10 @@ on:
           - dev
           - staging
           - prod
+      custom_environment:
+        description: "Adhoc environment (e.g. 030125-nightly)"
+        required: false
+        default: ""
       action:
         description: "Terraform action to perform"
         required: false
@@ -25,6 +29,18 @@ on:
           - plan
           - apply
           - destroy
+      logging_level:
+        description: "Terraform logging verbosity"
+        required: false
+        default: "INFO"
+        type: choice
+        options:
+          - TRACE
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+          - OFF
 
 jobs:
 
@@ -33,8 +49,11 @@ jobs:
 
     env:
 
-      TF_WORKSPACE: ${{ github.event.inputs.target_environment }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/credentials.json
+      PROJECT_CONFIG_FILE: project.json
+
+      # TF_WORKSPACE: ${{ github.event.inputs.target_environment }}
+      TF_LOG: ${{ github.event.inputs.logging_level }}
 
     steps:
 
@@ -51,20 +70,91 @@ jobs:
 
           printf "%s" "${{ secrets.GCP_CREDENTIALS }}" | base64 --decode > ${GOOGLE_APPLICATION_CREDENTIALS} ;
 
+      - name: Determine Effective Environment
+        id: resolve_env
+        run: |
+
+          custom_environment="${{ github.event.inputs.custom_environment }}" ;
+          default_environment="${{ github.event.inputs.target_environment }}" ;
+
+          # Use custom if defined
+          if [[ -n "${custom_environment}" ]]; then
+                  echo "Effective environment (custom): ${custom_environment}" ;
+                  echo "TARGET_ENVIRONMENT=${custom_environment}" >> $GITHUB_ENV ;
+            else  echo "Effective environment (default): ${default_environment}" ;
+                  echo "TARGET_ENVIRONMENT=${default_environment}" >> $GITHUB_ENV ;
+          fi ;
+
+          echo "TF_WORKSPACE=${TARGET_ENVIRONMENT}" >> $GITHUB_ENV ;
+
       - name: Extract Workflow Globals (PROJECT_ID, REGION, etc.)
         id: setup_globals
         run: |
 
-          PROJECT_ID=$(jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}") ;
-          REGION=$(jq -r '.targets[.default].region' workspaces.json) ;
-          FORWARDING_RULE_NAME=$( jq -r '.targets[.default].services.http_forwarding.name' workspaces.json ) ;
+          # target_environment="${{ github.event.inputs.target_environment }}" ;
+          target_environment="${{ env.TARGET_ENVIRONMENT }}" ;
 
-          echo -e "PROJECT_ID=${PROJECT_ID}" >> $GITHUB_ENV ;
-          echo -e "REGION=${REGION}" >> $GITHUB_ENV ;
-          echo "FORWARDING_RULE_NAME=${FORWARDING_RULE_NAME}" >> $GITHUB_ENV ;
+          # Extract project ID from the credentials file
+          project_id=$(
+            jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}"
+          ) ;
+
+          # Load paths and filenames from project configuration file
+          provider=$(
+            jq -r '.default' ${PROJECT_CONFIG_FILE}
+          ) ;
+
+          projects_path=$(
+            jq -r '.configs.projects.path' ${PROJECT_CONFIG_FILE}
+          ) ;
+          project_config_file=$(
+            jq -r --arg provider "${provider}" '.configs.projects.sets[$provider]' ${PROJECT_CONFIG_FILE}
+          ) ;
+          project_config_path="${projects_path}/${project_config_file}" ;
+
+          targets_path=$(
+            jq -r '.configs.targets.path' ${PROJECT_CONFIG_FILE}
+          ) ;
+          # targets_config_file=$(
+          #   jq -r --arg env "$target_environment" '.configs.targets.sets[$env]' ${PROJECT_CONFIG_FILE}
+          # ) ;
+          # targets_config_path="${targets_path}/${targets_config_file}" ;
+
+          targets_config_file=$(
+            jq -r --arg env "$target_environment" '.configs.targets.sets[$env] // empty' ${PROJECT_CONFIG_FILE}
+          ) ;
+          # If not found in config, fallback to synthetic object
+          if [ -z "$targets_config_file" ]; then
+                  echo "Adhoc environment detected. Using empty targets config." ;
+                  echo '{}' > .adhoc-target.json ;
+                  targets_config_path=".adhoc-target.json" ;
+            else  targets_config_path="${targets_path}/${targets_config_file}" ;
+          fi ;
+
+          # Extract abstract region from target config
+          abstract_region=$(
+            jq -r '.region' "$targets_config_path"
+          ) ;
+
+          # Resolve actual cloud region from project config
+          region=$(
+            jq -r --arg key "${abstract_region}" '.regions[$key]' "${project_config_path}"
+          ) ;
+
+          # Resolve forwarding rule name from project config and inject the environment prefix
+          forwarding_rule_base=$(
+            jq -r '.services.http_forwarding.name' "${project_config_path}"
+          ) ;
+          forwarding_rule_name="${target_environment}--${forwarding_rule_base}" ;
+
+          # Export to GitHub Actions environment
+          echo "PROJECT_ID=${project_id}" >> $GITHUB_ENV ;
+          echo "REGION=${region}" >> $GITHUB_ENV ;
+          echo "FORWARDING_RULE_NAME=${forwarding_rule_name}" >> $GITHUB_ENV ;
 
       - name: Install Google Cloud SDK (quiet)
         run: |
+
           {
             sudo apt-get update && sudo apt-get install -y curl unzip jq
             curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
@@ -145,14 +235,21 @@ jobs:
       - name: Prepare Backend and Workspace
         run: |
 
-          chmod +x scripts/setup-backend.shell ;
+          # Resolve backend setup script path from project configuration file
+          backend_path=$(
+            jq -r '.scripts.manage.terraform-backend.path' ${PROJECT_CONFIG_FILE}
+          ) ;
+          backend_script_name=$(
+            jq -r '.scripts.manage.terraform-backend.script' ${PROJECT_CONFIG_FILE}
+          ) ;
+          backend_script="${backend_path}/${backend_script_name}" ;
 
-          echo -e "Checking for backend bucket..." ;
-          if ! ./scripts/setup-backend.shell; then
-            echo -e "Bucket does not exist. Creating it now..." ;
-            ./scripts/setup-backend.shell --create ;
-          else
-            echo -e "Bucket exists. Continuing..." ;
+          chmod +x $backend_script ;
+          echo "Checking for backend bucket..." ;
+          if ! ${backend_script}; then
+                  echo "Bucket does not exist. Creating it now..." ;
+                  ${backend_script} --create ;
+            else  echo "Bucket exists. Continuing..." ;
           fi ;
 
       - name: Initializing Terraform
@@ -164,80 +261,90 @@ jobs:
       - name: Configuring Terraform Workspace
         run: |
 
-          CURRENT_WS=$(terraform workspace show || echo -e "default") ;
-          echo -e "Current workspace: $CURRENT_WS" ;
+          target_environment="${{ github.event.inputs.target_environment }}" ;
 
-          if [ "$CURRENT_WS" = "default" ]; then
-            DEFAULT_WS=$(jq -r '.default' workspaces.json) ;
-            echo -e "Switching from 'default' to workspace: $DEFAULT_WS" ;
+          # Optional: Validate target environment exists in project configuration file
+          target_config_exists=$(
+            jq -e --arg env "${target_environment}" '.configs.targets.sets[$env] // empty' ${PROJECT_CONFIG_FILE}
+          ) ;
 
-            if terraform workspace list | grep -q "$DEFAULT_WS"; then
-              terraform workspace select "$DEFAULT_WS" ;
-            else
-              terraform workspace new "$DEFAULT_WS" ;
-            fi ;
-          else
-            echo -e "Workspace is already set: $CURRENT_WS" ;
+          if [ -z "$target_config_exists" ]; then
+            echo "Error: target environment '${target_environment}' not defined in ${PROJECT_CONFIG_FILE}" ;
+            exit 1 ;
+          fi ;
+
+          current_workspace=$(terraform workspace show || echo "default") ;
+          echo "Current workspace: ${current_workspace}" ;
+
+          if [ "${current_workspace}" = "default" ]; then
+                  echo "Switching from 'default' to workspace: ${target_environment}" ;
+                  if terraform workspace list | grep -q "${target_environment}"; then
+                          terraform workspace select "${target_environment}" ;
+                    else  terraform workspace new "${target_environment}" ;
+                  fi ;
+            else  echo "Workspace is already set: ${current_workspace}" ;
           fi ;
 
       - name: Terraform Validate
         if: ${{ github.event.inputs.action != 'validate' }}
-        run: terraform validate ;
+        run: |
+
+          terraform validate ;
 
       - name: Terraform Plan
         if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy' }}
-        run: TF_LOG=INFO terraform plan -lock=false -out=tfplan ;
+        run: |
+
+          TF_LOG=${{ github.event.inputs.logging_level }} terraform plan -lock=false -out=tfplan ;
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
-        run: TF_LOG=INFO terraform apply -auto-approve tfplan ;
+        run: |
 
-      # - name: Test Web Server
-      #   if: ${{ github.event.inputs.action == 'apply' }}
-      #   run: |
-      #
-      #     echo -e "Fetching public IP of load balancer..." ;
-      #     ipaddress=$(
-      #       gcloud compute forwarding-rules \
-      #         describe http-forwarding-rule \
-      #         --global \
-      #         --format="value(IPAddress)"
-      #     ) ;
-      #
-      #     if [[ -z "${ipaddress}" ]]; then
-      #       echo -e "No public IP found for the load balancer." ;
-      #       exit 1 ;
-      #     fi ;
-      #
-      #     echo -e "Testing HTTP access to: http://${ipaddress}" ;
-      #     curl --fail --connect-timeout 10 "http://${ipaddress}" ;
+          TF_LOG=${{ github.event.inputs.logging_level }} terraform apply -auto-approve tfplan ;
 
       - name: Inspect Load Balancer Services
         if: ${{ github.event.inputs.action == 'apply' }}
         run: |
 
-          chmod +x scripts/inspect-services.shell ;
-          ./scripts/inspect-services.shell "${{ env.FORWARDING_RULE_NAME }}" ;
+          # Resolve inspect-services script path from project configuration file
+          inspect_path=$(
+            jq -r '.scripts.manage.inspect-services.path' ${PROJECT_CONFIG_FILE}
+          ) ;
+          inspect_script=$(
+            jq -r '.scripts.manage.inspect-services.script' ${PROJECT_CONFIG_FILE}
+          ) ;
+          inspect_services="${inspect_path}/${inspect_script}" ;
+
+          chmod +x ${inspect_services} ;
+          ${inspect_services} "${{ env.FORWARDING_RULE_NAME }}" ;
 
       - name: Evaluate State Backup Condition
         id: destroy_state
         run: |
 
           if [[ "${{ github.event.inputs.action }}" == "destroy" && "${{ github.event.inputs.target_environment }}" == "dev" ]]; then
-            echo -e "DESTROY_STATE=true" >> $GITHUB_ENV ;
-          else
-            echo -e "DESTROY_STATE=false" >> $GITHUB_ENV ;
+                  echo -e "DESTROY_STATE=true" >> $GITHUB_ENV ;
+            else  echo -e "DESTROY_STATE=false" >> $GITHUB_ENV ;
           fi ;
 
       - name: Download Terraform State Files (Backup)
-        if: env.DESTROY_STATE == 'true'
+        if: ${{ env.DESTROY_STATE == 'true' }}
         run: |
 
-          chmod +x scripts/setup-backend.shell ;
-          ./scripts/setup-backend.shell --download ;
+          backend_path=$(
+            jq -r '.scripts.manage["terraform-backend"].path' ${PROJECT_CONFIG_FILE}
+          ) ;
+          backend_script_name=$(
+            jq -r '.scripts.manage["terraform-backend"].script' ${PROJECT_CONFIG_FILE}
+          ) ;
+          backend_script="${backend_path}/${backend_script_name}" ;
+
+          chmod +x ${backend_script} ;
+          ${backend_full} --download ;
 
       - name: Upload Terraform State Backup
-        if: env.DESTROY_STATE == 'true'
+        if: ${{ env.DESTROY_STATE == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: terraform-state-backup-${{ github.run_id }}
@@ -245,5 +352,7 @@ jobs:
 
       - name: Terraform Destroy
         # if: ${{ github.event.inputs.action == 'destroy' }}
-        if: env.DESTROY_STATE == 'true'
-        run: TF_LOG=INFO terraform destroy -auto-approve ;
+        if: ${{ env.DESTROY_STATE == 'true' }}
+        run: |
+
+          TF_LOG=${{ github.event.inputs.logging_level }} terraform destroy -auto-approve ;

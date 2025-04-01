@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# File: /scripts/setup-webserver.shell
+# File: ./scripts/configure/apache-webserver.shell
 # Version: 0.1.0
 
 # Update package lists

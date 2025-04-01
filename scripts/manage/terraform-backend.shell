@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# File: scripts/setup-backend.shell
+# File: ./scripts/manage/terraform-backend.shell
 # Version: 0.1.0
 
 set -euo pipefail

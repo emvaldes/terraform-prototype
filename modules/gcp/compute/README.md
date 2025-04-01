@@ -28,7 +28,7 @@ With built-in support for automated provisioning, health monitoring, startup scr
 
 ### Instance Template
 - Based on the official **Debian 11 image** from `debian-cloud`
-- Executes a startup script (`scripts/setup-webserver.shell`) for initialization tasks (e.g., web server installation, logging agents)
+- Executes a startup script (`./scripts/configure/apache-webserver.shell`) for initialization tasks (e.g., web server installation, logging agents)
 - Attaches each instance to user-defined `network` and `subnetwork`, maintaining infrastructure consistency
 - Adds structured tags for:
   - `ssh-access` — Enables secure shell access

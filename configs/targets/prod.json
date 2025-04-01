@@ -1,0 +1,14 @@
+{
+    "target": "production",
+    "region": "east",
+    "type": "standard",
+    "policies": {
+        "autoscaling": {
+            "min": 3,
+            "max": 6,
+            "threshold": 0.7,
+            "cooldown": 120
+        },
+        "stressload": "high"
+    }
+}

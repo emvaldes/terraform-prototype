@@ -1,40 +1,33 @@
 # File: /modules/gcp/networking/networking.tf
 # Version: 0.1.0
 
-resource "google_project_service" "servicenetworking" {
-  project = var.gcp_project_id
-  service = "servicenetworking.googleapis.com"
-
-  disable_on_destroy = false
-}
-
 resource "google_compute_network" "vpc_network" {
-  name                    = "${terraform.workspace}--webapp-vpc"
+  name                    = var.vpc_network_name
   auto_create_subnetworks = false
 }
 
-# Create a Subnet within the VPC
 resource "google_compute_subnetwork" "subnet" {
-  name          = "${terraform.workspace}--webapp-subnet"
-  region        = var.region
-  network       = google_compute_network.vpc_network.id
-  ip_cidr_range = "10.0.1.0/24"
+  name                     = var.subnet_name
+  ip_cidr_range            = var.subnet_cidr_range
+  region                   = var.region
+  network                  = google_compute_network.vpc_network.id
+  private_ip_google_access = true
 }
 
 resource "google_compute_global_address" "cloudsql_psa_range" {
-  name          = "${terraform.workspace}--cloudsql-psa-range"
+  name          = var.psa_range_name
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
-  prefix_length = 16
+  prefix_length = var.psa_range_prefix
   network       = google_compute_network.vpc_network.id
+}
+
+resource "google_project_service" "servicenetworking" {
+  service = "servicenetworking.googleapis.com"
 }
 
 resource "google_service_networking_connection" "cloudsql_psa_connection" {
   network                 = google_compute_network.vpc_network.id
-  service                 = "servicenetworking.googleapis.com"
+  service                 = google_project_service.servicenetworking.service
   reserved_peering_ranges = [google_compute_global_address.cloudsql_psa_range.name]
-
-  depends_on = [
-    google_project_service.servicenetworking
-  ]
 }
