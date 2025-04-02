@@ -16,37 +16,27 @@ import time
 import json
 import logging
 import threading
-import subprocess
 import requests
+from googleapiclient.discovery import build
+from google.auth import default
 
 
-# === GCloud Helpers ===
-
-def gcloud_json(
-    cmd: list[str]
-) -> dict:
-    result = subprocess.run(
-        cmd, 
-        capture_output=True, 
-        text=True
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
-    return json.loads(result.stdout)
-
+# === Google Cloud API Helpers ===
 
 def get_instance_count(
-    mig_name: str, 
-    region: str, 
+    mig_name: str,
+    region: str,
     project_id: str
 ) -> int:
-    cmd = [
-        "gcloud", "compute", "instance-groups", "managed", "list-instances", mig_name,
-        "--region", region,
-        "--project", project_id,
-        "--format", "json"
-    ]
-    return len(gcloud_json(cmd))
+    credentials, _ = default()
+    service = build("compute", "v1", credentials=credentials)
+    request = service.regionInstanceGroupManagers().listManagedInstances(
+        project=project_id,
+        region=region,
+        instanceGroupManager=mig_name
+    )
+    response = request.execute()
+    return len(response.get("managedInstances", []))
 
 
 # === Stress Load Engine ===
@@ -56,7 +46,7 @@ def send_request(
 ):
     try:
         response = requests.get(
-            url, 
+            url,
             timeout=10
         )
         logging.info(f"Status {response.status_code} | Time {response.elapsed.total_seconds():.2f}s")
@@ -65,9 +55,9 @@ def send_request(
 
 
 def stress_loop(
-    url: str, 
-    seconds: int, 
-    concurrency: int, 
+    url: str,
+    seconds: int,
+    concurrency: int,
     sleep_interval: float
 ):
     logging.info(f"Stress load: {concurrency} threads for {seconds}s")
@@ -84,16 +74,16 @@ def stress_loop(
 
 
 def wait_for_scale_down(
-    min_replicas: int, 
-    mig_name: str, 
-    region: str, 
+    min_replicas: int,
+    mig_name: str,
+    region: str,
     project_id: str
 ):
     logging.info("Monitoring for scale down...")
     while True:
         count = get_instance_count(
-            mig_name, 
-            region, 
+            mig_name,
+            region,
             project_id
         )
         logging.info(f"Current instances: {count}")
@@ -109,7 +99,7 @@ def main(
     request=None
 ):
     CONFIG_PATH = os.path.join(
-        os.path.dirname(__file__), 
+        os.path.dirname(__file__),
         "config.json"
     )
 
@@ -172,27 +162,28 @@ def main(
         logging.info(f"Autoscaler Range (from config): {min_replicas}-{max_replicas}")
 
         while get_instance_count(
-            mig_name, 
-            region, project_id
+            mig_name,
+            region,
+            project_id
         ) < max_replicas:
             stress_loop(
-                target_url, 
-                duration, 
-                concurrency, 
+                target_url,
+                duration,
+                concurrency,
                 sleep_interval
             )
 
         wait_for_scale_down(
-            min_replicas, 
-            mig_name, 
-            region, 
+            min_replicas,
+            mig_name,
+            region,
             project_id
         )
 
         return {"statusCode": 200, "body": "Stress test completed"}
     except Exception as e:
         logging.error(
-            str(e), 
+            str(e),
             exc_info=True
         )
         return {"statusCode": 500, "body": f"Error: {str(e)}"}

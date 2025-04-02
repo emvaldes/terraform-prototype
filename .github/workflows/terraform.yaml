@@ -6,6 +6,7 @@ name: Terraform GCP CI/CD Pipeline
 on:
   workflow_dispatch:
     inputs:
+
       target_environment:
         description: "Deployment environment"
         required: false
@@ -15,10 +16,12 @@ on:
           - dev
           - staging
           - prod
+
       custom_environment:
         description: "Adhoc environment (e.g. 030125-nightly)"
         required: false
         default: ""
+
       action:
         description: "Terraform action to perform"
         required: false
@@ -29,6 +32,13 @@ on:
           - plan
           - apply
           - destroy
+
+      execute_stressload:
+        description: "Stressload Autoscaling service"
+        required: false
+        default: false
+        type: boolean
+
       logging_level:
         description: "Terraform logging verbosity"
         required: false
@@ -58,20 +68,23 @@ jobs:
     steps:
 
       - name: Checkout Repository
+        id: checkout_repository
         uses: actions/checkout@v2
 
       - name: Set up Terraform
+        id: setup_terraform
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: ${{ vars.TERRAFORM_VERSION }}
 
       - name: Decode GCP Credentials (base64 → JSON)
+        id: decode_credentials
         run: |
 
           printf "%s" "${{ secrets.GCP_CREDENTIALS }}" | base64 --decode > ${GOOGLE_APPLICATION_CREDENTIALS} ;
 
       - name: Determine Effective Environment
-        id: resolve_env
+        id: active_environment
         run: |
 
           custom_environment="${{ github.event.inputs.custom_environment }}" ;
@@ -88,7 +101,7 @@ jobs:
           echo "TF_WORKSPACE=${TARGET_ENVIRONMENT}" >> $GITHUB_ENV ;
 
       - name: Extract Workflow Globals (PROJECT_ID, REGION, etc.)
-        id: setup_globals
+        id: workflow_globals
         run: |
 
           # target_environment="${{ github.event.inputs.target_environment }}" ;
@@ -153,6 +166,7 @@ jobs:
           echo "FORWARDING_RULE_NAME=${forwarding_rule_name}" >> $GITHUB_ENV ;
 
       - name: Install Google Cloud SDK (quiet)
+        id: install_gcloudsdk
         run: |
 
           {
@@ -160,9 +174,10 @@ jobs:
             curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud version
-          } > gcloud-sdk-install.log 2>&1
+          } > gcloud-sdk-install.log 2>&1 ;
 
       - name: Upload gcloud install log
+        id: upload_setuplog
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -170,17 +185,19 @@ jobs:
           path: gcloud-sdk-install.log
 
       - name: Authenticate GCP Service Account
+        id: authenticate_account
         run: |
 
           gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}" ;
 
       - name: Set GCP Project from credentials.json
+        id: project_crendentials
         run: |
 
           gcloud config set project "${{ env.PROJECT_ID }}" ;
 
-      # GCP DIAGNOSTICS BLOCK
       - name: GCP Environment Diagnostics
+        id: environment_diagnostics
         run: |
 
           echo -e "\n>>> gcloud auth list (JSON)" ;
@@ -193,12 +210,14 @@ jobs:
           gcloud projects describe "${{ env.PROJECT_ID }}" ;
 
       - name: GCP Compute - Project Information
+        id: compute_project_info
         run: |
 
           echo -e "\n>>> gcloud compute project-info describe (JSON)" ;
           gcloud compute project-info describe --format=json | jq '.quotas = []' ;
 
       - name: GCP Compute - Regions/Zones
+        id: compute_regions_zones
         run: |
 
           echo -e "\n>>> gcloud compute regions (${{ env.REGION }}) list (filtered)" ;
@@ -208,6 +227,7 @@ jobs:
           gcloud compute zones list --filter="region:(${ env.REGION })" --format=json | jq . ;
 
       - name: GCP Compute - Networks
+        id: compute_networks
         run: |
 
           echo -e "\n>>> gcloud compute networks list (JSON)" ;
@@ -215,24 +235,28 @@ jobs:
                | jq --arg region "${{ env.REGION }}" 'map(.subnetworks |= map(select(test("/regions/" + $region + "/"))))' ;
 
       - name: GCP Compute - Instances
+        id: compute_instances
         run: |
 
           echo -e "\n>>> gcloud compute instances list (JSON)" ;
           gcloud compute instances list --format=json || echo -e "No instances" ;
 
       - name: GCP Services Listing
+        id: gcloud_services
         run: |
 
           echo -e "\n>>> gcloud services list --enabled (JSON)" ;
           gcloud services list --enabled --format=json || echo -e "No enabled services" ;
 
       - name: GCP Service-Accounts Listing
+        id: service_accounts
         run: |
 
           echo -e "\n>>> gcloud iam service-accounts list (JSON)" ;
           gcloud iam service-accounts list --format=json || echo -e "No service accounts found" ;
 
       - name: Prepare Backend and Workspace
+        id: prepare_backend
         run: |
 
           # Resolve backend setup script path from project configuration file
@@ -253,12 +277,14 @@ jobs:
           fi ;
 
       - name: Initializing Terraform
+        id: initialize_terraform
         run: |
 
           echo -e "Running terraform init..." ;
           terraform init ;
 
       - name: Configuring Terraform Workspace
+        id: configure_workspace
         run: |
 
           target_environment="${{ github.event.inputs.target_environment }}" ;
@@ -286,24 +312,28 @@ jobs:
           fi ;
 
       - name: Terraform Validate
+        id: validate_terraform
         if: ${{ github.event.inputs.action != 'validate' }}
         run: |
 
           terraform validate ;
 
       - name: Terraform Plan
+        id: plan_terraform
         if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy' }}
         run: |
 
           TF_LOG=${{ github.event.inputs.logging_level }} terraform plan -lock=false -out=tfplan ;
 
       - name: Terraform Apply
+        id: apply_terraform
         if: ${{ github.event.inputs.action == 'apply' }}
         run: |
 
           TF_LOG=${{ github.event.inputs.logging_level }} terraform apply -auto-approve tfplan ;
 
       - name: Inspect Load Balancer Services
+        id: loadbalancer_services
         if: ${{ github.event.inputs.action == 'apply' }}
         run: |
 
@@ -319,17 +349,56 @@ jobs:
           chmod +x ${inspect_services} ;
           ${inspect_services} "${{ env.FORWARDING_RULE_NAME }}" ;
 
+      - name: Evaluate Stressload Condition
+        id: evaluate_stressload
+        run: |
+          if [[ "${{ github.event.inputs.execute_stressload }}" == "true" && "${{ github.event.inputs.action }}" == "apply" ]]; then
+              echo "EXECUTE_STRESSLOAD=true" >> $GITHUB_ENV ;
+              echo "Stressload test is enabled."
+          else
+              echo "EXECUTE_STRESSLOAD=false" >> $GITHUB_ENV ;
+              echo "Stressload test is skipped."
+          fi ;
+
+      - name: Execute Stressload Autoscaling Service
+        id: execute_stressload
+        if: ${{ env.EXECUTE_STRESSLOAD == 'true' }}
+        run: |
+
+          echo "Running stressload test with 'hey'..."
+
+          forwarding_ip=$(
+            gcloud compute forwarding-rules describe "${{ env.FORWARDING_RULE_NAME }}" \
+              --region="${{ env.REGION }}" \
+              --format="value(IPAddress)"
+          ) ;
+
+          echo "Resolved Load Balancer IP: ${forwarding_ip}" ;
+
+          # Install hey if not present
+          sudo apt-get update -qq && sudo apt-get install -y golang-go ;
+
+          go install github.com/rakyll/hey@latest ;
+          export PATH=$PATH:$(go env GOPATH)/bin ;
+
+          # Perform the stress test: 15s load, 15s idle, 15s for scale down, 15s more to observe
+          hey -z 15s -c 100 "http://${forwarding_ip}" ;
+          sleep 15 ;
+          echo "Waiting for scale down..." ;
+          sleep 30 ;
+
       - name: Evaluate State Backup Condition
-        id: destroy_state
+        id: destroy_tfstate
         run: |
 
           if [[ "${{ github.event.inputs.action }}" == "destroy" && "${{ github.event.inputs.target_environment }}" == "dev" ]]; then
-                  echo -e "DESTROY_STATE=true" >> $GITHUB_ENV ;
-            else  echo -e "DESTROY_STATE=false" >> $GITHUB_ENV ;
+                  echo -e "DESTROY_TFSTATE=true" >> $GITHUB_ENV ;
+            else  echo -e "DESTROY_TFSTATE=false" >> $GITHUB_ENV ;
           fi ;
 
       - name: Download Terraform State Files (Backup)
-        if: ${{ env.DESTROY_STATE == 'true' }}
+        id: download_tfstate
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
         run: |
 
           backend_path=$(
@@ -344,15 +413,17 @@ jobs:
           ${backend_full} --download ;
 
       - name: Upload Terraform State Backup
-        if: ${{ env.DESTROY_STATE == 'true' }}
+        id: upload_tfstate
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: terraform-state-backup-${{ github.run_id }}
           path: .local/
 
       - name: Terraform Destroy
+        id: destroy_terraform
         # if: ${{ github.event.inputs.action == 'destroy' }}
-        if: ${{ env.DESTROY_STATE == 'true' }}
+        if: ${{ env.DESTROY_TFSTATE == 'true' }}
         run: |
 
           TF_LOG=${{ github.event.inputs.logging_level }} terraform destroy -auto-approve ;

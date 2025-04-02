@@ -1,151 +1,147 @@
-# Terraform GitHub Actions Workflow
-
-## File
-`File: .github/workflows/terraform.yaml`
-
-## Version
-`Version: 0.1.0`
-
----
+# Project: Zero-Trust Multi-Cloud Infrastructure (GCP-first)
 
 ## Overview
-This GitHub Actions workflow automates the full lifecycle of Terraform-based infrastructure provisioning on **Google Cloud Platform (GCP)**. Designed for flexibility, security, and maintainability, it supports the following actions across multiple environments (`dev`, `staging`, `prod`):
 
-- Terraform configuration validation
-- Plan generation for infrastructure changes
-- Deployment and provisioning of cloud resources
-- Controlled destruction with safety checks and state backup
+This project is a highly modular, zero-trust, configuration-driven multi-cloud infrastructure deployment and automation framework built for technical DevSecOps engineers. The system focuses on zero manual configuration, ephemeral access, security-first networking, and fully automated service introspection.
 
-The workflow is tightly integrated with Terraform, GCP tooling (`gcloud`), and custom JSON-based configuration files to dynamically adjust to the selected environment and input parameters. It ensures consistent, reproducible deployments and applies DevOps best practices to infrastructure management.
+- **Cloud Focus**: Google Cloud Platform (GCP) (AWS and Azure coming soon)
+- **Core Principles**: Zero-trust, least-privilege, zero-config, configuration-driven automation
+- **Technologies**: Terraform, GitHub Actions, Python, GCP Cloud Functions, JSON-based configuration layering
 
-This workflow is particularly useful for teams aiming to achieve infrastructure automation and compliance via CI/CD pipelines while preserving security and auditability.
+> 📂 Root: This is the main entry point. The Terraform logic, cloud-specific configurations, and automation workflows live here.
 
 ---
 
-## Trigger Mechanism
+## 📜 Table of Contents
 
-The workflow is **manually triggered** using GitHub’s `workflow_dispatch` event, enabling developers or DevOps engineers to select specific inputs when initiating a pipeline run.
-
-### Inputs
-- **`target_environment`** (string, optional): Defines the workspace to target. Defaults to `dev`. Accepted values:
-  - `dev`
-  - `staging`
-  - `prod`
-
-- **`action`** (string, optional): Determines which Terraform operation to execute. Defaults to `validate`. Options include:
-  - `validate`
-  - `plan`
-  - `apply`
-  - `destroy`
-
-This setup supports fine-grained control over when and how infrastructure changes are deployed.
+- [Core Philosophy](#core-philosophy)
+- [Directory Structure](#directory-structure)
+- [Infrastructure Workflow](#infrastructure-workflow)
+- [Configuration Files](#configuration-files)
+- [GitHub Actions CI/CD](#github-actions-cicd)
+- [Cloud Functions](#cloud-functions)
+- [Security and Zero-Trust Design](#security-and-zero-trust-design)
+- [Future Work](#future-work)
 
 ---
 
-## Environment Preparation
+## Core Philosophy
 
-The pipeline configures runtime variables and credentials required for Terraform and GCP access:
+The entire system is built on:
 
-- Sets the `TF_WORKSPACE` environment variable from the input
-- Decodes a Base64-encoded GCP service account key from GitHub Secrets (`GCP_CREDENTIALS`) into `credentials.json`
-- Uses `jq` to parse `workspaces.json` and extract the default region and forwarding rule name relevant to the chosen environment
-- Stores extracted values in GitHub environment variables for downstream steps
-
----
-
-## Toolchain Installation
-
-The following dependencies are installed to ensure a reproducible and consistent build environment:
-- **Google Cloud SDK** (via shell installation)
-- **jq**, **curl**, and **unzip** (via `apt-get`)
-
-Installation logs are written to `gcloud-sdk-install.log` and uploaded as an artifact. This step enables full visibility and helps with troubleshooting any toolchain-related issues.
+- 🔐 **Zero-Trust**: No implicit trust. All access is ephemeral, minimal, and auditable.
+- 🧩 **Modularity**: Terraform modules are reusable, versioned, and scoped.
+- ⚙️ **Config-First**: All behavior is driven by JSON configs (`project.json`, `workspaces.json`, `policies.json`). No hardcoding.
+- 📦 **Single-Source of Truth**: All inputs derive from versioned configuration.
+- 👁️ **Observability**: Logs, status, introspection scripts, and automated service audits.
+- 🔁 **Automation-first**: GitHub Actions automate deploy/test/teardown cycles.
 
 ---
 
-## GCP Authentication and Project Context
+## Directory Structure
 
-- Activates the service account via `gcloud auth activate-service-account`
-- Sets the current project using `gcloud config set project`
-- Ensures that all Terraform and `gcloud` commands are executed within the correct GCP project context
+| Path | Description |
+|------|-------------|
+| `/main.tf`, `/backend.tf`, `/outputs.tf`, `/providers.tf`, `/variables.tf` | Root Terraform entry point |
+| `/project.json` | Primary configuration entry (defines cloud targets, scripts, structure) |
+| `/configs/` | Contains cloud-agnostic and cloud-specific variables and mappings |
+| `/modules/` | Reusable, scoped Terraform modules (e.g., networking, compute, load balancer) |
+| `/scripts/` | Automation helpers: packaging, inspection, stress-testing (Python + Shell) |
+| `/packages/` | Output of function packaging: deployable zips, binaries |
+| `/logs/` | Output logs, including debug and audit trails |
+| `/reports/` | Post-deployment reports, configurations, and cloud audits |
+| `/.github/workflows/` | GitHub Actions for deploy, test, and teardown flows |
 
----
-
-## Cloud Diagnostics and Environment Introspection
-
-The workflow includes comprehensive GCP diagnostics prior to any Terraform command. These checks are useful for debugging and auditing:
-
-- Authentication state (`gcloud auth list`)
-- Current configurations (`gcloud config list`)
-- GCP project metadata (`gcloud projects describe`)
-- Compute quotas and usage (`gcloud compute project-info describe`)
-- Available regions and zones (`gcloud compute regions/zones list`)
-- VPC networks (`gcloud compute networks list`)
-- Running instances (`gcloud compute instances list`)
-- Enabled services (`gcloud services list --enabled`)
-- IAM service accounts (`gcloud iam service-accounts list`)
-
-All diagnostic outputs are formatted as JSON and printed to the workflow logs for review.
+Each major directory includes its own README. See subfolders for details.
 
 ---
 
-## Terraform Backend Initialization & Workspace Management
+## Infrastructure Workflow
 
-- Runs the `./scripts/manage/terraform-backend.shell` script to ensure the remote state bucket exists
-  - If the bucket is missing, it is created automatically with the `--create` flag
-- Executes `terraform init` to initialize the backend and prepare for operations
-- Manages workspace selection using `terraform workspace select` or `new` to ensure operations are scoped correctly to the desired environment
+This is a configuration-driven, CI-triggered deployment model:
 
----
-
-## Terraform Execution Logic
-
-The pipeline branches based on the selected `action`:
-
-### Validate
-- Performs static analysis using `terraform validate`
-- Ensures configuration is syntactically correct and complete
-
-### Plan
-- Executes `terraform plan` with logging enabled (`TF_LOG=INFO`)
-- Stores the output in a `tfplan` file, which can be used later for `apply`
-
-### Apply
-- Runs `terraform apply` with `-auto-approve` using the previously created plan
-- Applies infrastructure changes and provisions new resources
-
-### Destroy *(restricted to `dev` only)*
-- Checks if the target environment is `dev` before proceeding
-- Downloads the current remote state via `./scripts/manage/terraform-backend.shell --download`
-- Uploads the backup state to GitHub as `terraform-state-backup-<run_id>`
-- Executes `terraform destroy` to tear down infrastructure
+1. 🧩 **Input Configs**: JSON inputs define cloud, region, resources, stress load.
+2. 🏗️ **Terraform Deploy**: `terraform.yaml` plans and applies modules using configs.
+3. 📦 **Packaging**: `package-functions.shell` prepares and configures Cloud Functions.
+4. 🔍 **Inspection**: `inspect-services.shell` provides service details (load balancers, backends, IAM).
+5. 🔁 **Test / Teardown**: Ephemeral validation and safe destruction via `test` workflow.
 
 ---
 
-## Post-Deployment Service Inspection
+## Configuration Files
 
-After a successful `apply`, the workflow executes the `./scripts/manage/inspect-services.shell` script with the forwarding rule name as a parameter. This script prints enriched metadata about:
-- Global forwarding rules
-- Target HTTP proxies
-- URL maps
-- Backend services
-- Health checks and their statuses
+- 📄 `project.json`: Declares active cloud provider, configuration file locations, script bindings.
+- 📄 `workspaces.json`: Environment-specific mapping for resource shape, region, instance size, count, stress levels.
+- 📄 `policies.json`: Shared policies, including stressload thresholds, naming, access control.
 
-This step ensures that all critical load balancer components are provisioned correctly and are functioning as expected.
+All configurations use abstracted names (e.g., `region = west`) that resolve to cloud-specific regions (`us-west2`, `europe-west4`, etc).
 
 ---
 
-## Additional Notes
+## GitHub Actions CI/CD
 
-- `destroy` is gated by an environment check and is disabled in `staging` and `prod`
-- All workspace-related defaults are extracted from `workspaces.json`, removing the need for `.tfvars`
-- A commented-out test block exists for performing an HTTP `curl` request against the deployed load balancer
-- All significant outputs, logs, and state artifacts are uploaded to GitHub for later inspection or recovery
+📂 `.github/workflows/terraform.yaml`
+
+- `deploy`: Deploy infrastructure using GitHub workflow_dispatch and config input
+- `test`: Run deployment and teardown for pipeline verification
+- Uploads state and outputs as artifacts
+- Uses `${{ env.* }}` syntax for traceability
+
+> All deployments are ephemeral and CI-controlled. No direct `terraform apply` commands are used manually.
 
 ---
 
-## Final Summary
+## Cloud Functions
 
-This GitHub Actions workflow delivers a production-grade automation pipeline for Terraform deployments to GCP. It combines environment-aware provisioning with robust diagnostics, clear state management, and secure operation enforcement. By leveraging structured JSON inputs, it avoids hardcoded values and supports seamless environment transitions.
+📂 `scripts/stressload/webservers/`
 
-Ideal for DevOps engineers, infrastructure specialists, and platform teams seeking to implement a secure, extensible, and transparent CI/CD workflow for infrastructure management.
+- `main.py`: Stress-test function (HTTP-triggered)
+- Reads from `config.json` (built by `package-functions.shell`)
+- Logs to cloud-native logging backend (GCP now, AWS/Azure planned)
+- Zero manual config: function config is injected post-deploy from Terraform outputs
+
+Packaging: handled by `scripts/manage/package-functions.shell`
+
+---
+
+## Security and Zero-Trust Design
+
+- 🔐 **Read-Only Service Account** with ephemeral access (5–60 minutes)
+- 🚫 No embedded credentials
+- ☁️ Logging to cloud-native audit systems
+- 🕵️‍♂️ IAM role scanning and introspection (`scripts/manage/profile-activity.shell`)
+- 🔄 Minimal-config Cloud Function runtime using `function_config.json`
+- 🔐 Ingress restrictions and IAM invocation rules on functions
+- 🌐 Dedicated management VPC option (on-demand, destroyable)
+
+---
+
+## Future Work
+
+- [ ] Extend to AWS and Azure using same configuration and modules
+- [ ] Support multi-cloud test runner with provider detection logic
+- [ ] Enforce runtime logging via external logging gateway
+- [ ] Add GPG/PGP signature support to validate Terraform plans before apply
+- [ ] Harden Cloud Function further using Workload Identity Federation
+- [ ] Replace static IP firewall with rotating identity-based allowlists
+- [ ] Add documentation export generator (`--doc`) for Terraform + Configs
+- [ ] Add module tests and contract validation via CI (using `terratest` or `pytest`)
+
+---
+
+## Distinctive Value
+
+> **This is not a template repo.**
+
+It’s a dynamic, secure, intelligent deployment system for modern multi-cloud DevSecOps teams.
+
+- 🔄 **Zero-config behavior**: Everything derived from `project.json` and `workspaces.json`.
+- 🔍 **Scriptable service audit**: Inspect, debug, and trace infra automatically.
+- 🔐 **Built-in Zero Trust**: IAM scanning, ephemeral service accounts, no open access.
+- 🌐 **Cloud-portable**: GCP first, but AWS/Azure support baked into structure.
+- ✅ **CI-first design**: GitHub Actions integrates testing, deployment, teardown.
+
+---
+
+_This README is generated based on current content as of April 1, 2025._
+
