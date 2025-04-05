@@ -1,4 +1,4 @@
-# File: modules/gcp/profiles/main.tf
+# File: modules/gcp/profiles/profiles.tf
 # Version: 0.1.0
 
 resource "google_service_account" "read_only" {
@@ -73,5 +73,11 @@ resource "google_project_iam_member" "cloud_function_logging_viewer" {
 resource "google_project_iam_member" "cli_admin_logging_viewer" {
   project = var.gcp_project_id
   role    = "roles/logging.viewer"
+  member  = "serviceAccount:gcp-cli-admin@${var.gcp_project_id}.iam.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cli_admin_storage_admin" {
+  project = var.gcp_project_id
+  role    = "roles/storage.admin"
   member  = "serviceAccount:gcp-cli-admin@${var.gcp_project_id}.iam.gserviceaccount.com"
 }

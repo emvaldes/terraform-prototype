@@ -1,4 +1,4 @@
-# File: /modules/gcp/networking/variables.tf
+# File: /modules/gcp/networking/networking.variables.tf
 # Version: 0.1.1
 
 # Project & Region Configuration

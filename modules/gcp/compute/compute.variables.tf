@@ -1,4 +1,4 @@
-# File: /modules/gcp/compute/variables.tf
+# File: /modules/gcp/compute/compute.variables.tf
 # Version: 0.1.0
 
 variable "autoscaler_cooldown" {

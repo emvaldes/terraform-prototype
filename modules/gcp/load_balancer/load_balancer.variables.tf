@@ -1,4 +1,4 @@
-# File: /modules/gcp/load_balancer/variables.tf
+# File: /modules/gcp/load_balancer/load_balancer.variables.tf
 # Version: 0.1.2
 
 # --- GCP Environment ---

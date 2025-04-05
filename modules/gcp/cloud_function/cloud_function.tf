@@ -8,12 +8,15 @@ resource "google_storage_bucket" "function_bucket" {
 }
 
 resource "google_storage_bucket_object" "function_archive" {
+  # count  = var.auto_deploy ? 1 : 0
+  count  = 1
   name   = var.archive_name
   bucket = google_storage_bucket.function_bucket.name
   source = var.archive_source
 }
 
 resource "google_cloudfunctions2_function" "cloud_function" {
+  count       = var.auto_deploy ? 1 : 0
   name        = var.function_name
   location    = var.region
   description = var.description
@@ -25,17 +28,17 @@ resource "google_cloudfunctions2_function" "cloud_function" {
     source {
       storage_source {
         bucket = google_storage_bucket.function_bucket.name
-        object = google_storage_bucket_object.function_archive.name
+        object = google_storage_bucket_object.function_archive[0].name
       }
     }
   }
 
   service_config {
-    service_account_email  = var.service_account_email
-    available_memory       = var.memory
-    timeout_seconds        = var.timeout
-    environment_variables  = var.environment_variables
-    ingress_settings       = "ALLOW_ALL"
+    service_account_email = var.service_account_email
+    available_memory      = var.memory
+    timeout_seconds       = var.timeout
+    environment_variables = var.environment_variables
+    ingress_settings      = "ALLOW_ALL"
   }
 
   lifecycle {
@@ -44,9 +47,10 @@ resource "google_cloudfunctions2_function" "cloud_function" {
 }
 
 resource "google_cloudfunctions2_function_iam_member" "invoker" {
+  count          = var.auto_deploy ? 1 : 0
   project        = var.gcp_project_id
   location       = var.region
-  cloud_function = google_cloudfunctions2_function.cloud_function.name
+  cloud_function = google_cloudfunctions2_function.cloud_function[0].name
   role           = var.invoker_role
   member         = var.invoker_member
 }

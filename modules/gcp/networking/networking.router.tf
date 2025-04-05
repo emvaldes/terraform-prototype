@@ -1,4 +1,4 @@
-# File: /modules/gcp/networking/router.tf
+# File: /modules/gcp/networking/networking.router.tf
 # Version: 0.1.0
 
 resource "google_compute_router" "nat_router" {

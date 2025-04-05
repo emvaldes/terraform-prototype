@@ -42,7 +42,7 @@ override.tf.json
 terraform.rc
 
 # Ignore Dynamically generated files
-packages/*
+# packages/*
 outputs.json
 
 # Including: Python components

@@ -1,4 +1,4 @@
-# File: /modules/gcp/firewall/variables.tf
+# File: /modules/gcp/firewall/firewall.variables.tf
 # Version: 0.1.0
 
 variable "allow_http_https_name" {

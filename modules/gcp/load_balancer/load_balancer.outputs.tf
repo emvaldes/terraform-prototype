@@ -1,4 +1,4 @@
-# File: /modules/gcp/load_balancer/outputs.tf
+# File: /modules/gcp/load_balancer/load_balancer.outputs.tf
 # Version: 0.1.0
 
 output "http_forwarding_rule_name" {

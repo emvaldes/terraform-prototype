@@ -1,4 +1,4 @@
-# File: modules/gcp/cloud_function/outputs.tf
+# File: modules/gcp/cloud_function/cloud_function.outputs.tf
 # Version: 0.1.0
 
 # Deployment Artifacts
@@ -10,17 +10,22 @@ output "function_bucket" {
 
 output "function_name" {
   description = "The name of the deployed Cloud Function"
-  value       = google_cloudfunctions2_function.cloud_function.name
+  value       = var.auto_deploy ? google_cloudfunctions2_function.cloud_function[0].name : null
 }
 
 output "function_region" {
   description = "Region where the function is deployed"
-  value       = google_cloudfunctions2_function.cloud_function.location
+  value       = var.auto_deploy ? google_cloudfunctions2_function.cloud_function[0].location : null
 }
 
 output "function_url" {
   description = "The HTTPS trigger URL for the Cloud Function"
-  value       = google_cloudfunctions2_function.cloud_function.service_config[0].uri
+  value       = var.auto_deploy ? google_cloudfunctions2_function.cloud_function[0].service_config[0].uri : null
+}
+
+output "upload_target" {
+  description = "Terraform target path for uploading the Cloud Function archive"
+  value       = "module.cloud_function[0].google_storage_bucket_object.function_archive"
 }
 
 # Stressload Metadata (Resolved Inputs)

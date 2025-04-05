@@ -14,7 +14,8 @@
     },
     "services": {
         "cloud_function": {
-          "enable": false,
+          "enable": true,
+          "auto_deploy": false,
           "name": "webapp-stress-tester",
           "description": "Stub Cloud Function for stress testing framework",
           "entry_point": "main",

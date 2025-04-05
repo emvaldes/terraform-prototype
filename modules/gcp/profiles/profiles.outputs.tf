@@ -1,4 +1,4 @@
-# File: modules/gcp/profiles/outputs.tf
+# File: modules/gcp/profiles/profiles.outputs.tf
 # Version: 0.1.0
 
 output "read_only_service_account_email" {

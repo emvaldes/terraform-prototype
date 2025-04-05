@@ -21,8 +21,6 @@ ls -al "${targets_path}"
 cat "${targets_path}"
 
 policies_path="${config_prefix}/configs/policies.json"
-echo -e "[Policies Configuration: ${policies_path}]"
-ls -al "${policies_path}"
 
 # --- Validate Files ---
 
@@ -36,6 +34,7 @@ if [[ ! -f "${policies_path}" ]]; then
         echo "Error: Policies file not found: ${policies_path}" >&2
         exit 2
   else  echo -e "[Policies Configuration: ${policies_path}]"
+        ls -al "${policies_path}"
 fi
 
 # --- Extract Stressload Settings ---
@@ -111,7 +110,8 @@ function print_active_instances() {
     "${mig_name}" \
     --region="${gcp_region}" \
     --project="${gcp_project_id}" \
-    --format="json"
+    --format="json" \
+  | jq .
 }
 
 # --- Reset Autoscaler to Minimum ---

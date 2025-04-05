@@ -386,7 +386,7 @@ jobs:
         id: plan_terraform
         if: ${{ github.event.inputs.terraform_action == 'plan' || github.event.inputs.terraform_action == 'apply' }}
         run: |
-          
+
           # TF_LOG=${{ env.TF_LOG }} terraform plan -lock=false -out=tfplan ;
           terraform plan -lock=false -out=tfplan ;
 
@@ -397,7 +397,7 @@ jobs:
 
           # TF_LOG=${{ env.TF_LOG }} terraform apply -auto-approve tfplan ;
           terraform apply -auto-approve tfplan ;
-          terraform output -json > ./outputs.json ;
+          TF_IN_AUTOMATION=1 terraform output -json > outputs.json ;
           head -n25 ./outputs.json ;
 
       - name: Inspect Load Balancer Services

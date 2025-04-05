@@ -1,4 +1,4 @@
-# File: /modules/gcp/networking/outputs.tf
+# File: /modules/gcp/networking/networking.outputs.tf
 # Version: 0.1.0
 
 output "cloudsql_psa_range_name" {

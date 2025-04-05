@@ -1,4 +1,4 @@
-# File: modules/gcp/cloud_function/variables.tf
+# File: modules/gcp/cloud_function/cloud_function.variables.tf
 # Version: 0.1.0
 
 # Deployment Artifacts
@@ -80,6 +80,11 @@ variable "memory" {
 variable "timeout" {
   description = "Timeout (in seconds) for the Cloud Function"
   type        = number
+}
+
+variable "auto_deploy" {
+  description = "Whether to auto-deploy the Cloud Function"
+  type        = bool
 }
 
 # Trigger Configuration

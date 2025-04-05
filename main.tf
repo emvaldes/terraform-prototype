@@ -14,7 +14,7 @@ locals {
   provider_id = local.project.defaults.provider
 
   # Provider config (cloud-specific)
-  provider = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
+  provider   = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
   project_id = local.provider.project_id
 
   # Workspace/target config (env-specific)
@@ -47,7 +47,7 @@ locals {
 
   # Autoscaling
   autoscaler = try(
-    local.policies.autoscaling.profiles[local.workspace.policies.autoscaling], 
+    local.policies.autoscaling.profiles[local.workspace.policies.autoscaling],
     {}
   )
 
@@ -58,7 +58,7 @@ locals {
 
 module "cloud_function" {
 
-  count  = var.enable_cloud_function ? 1 : 0
+  count  = local.cloud_function.enable ? 1 : 0
   source = "./modules/gcp/cloud_function"
 
   gcp_project_id = local.project_id
@@ -79,20 +79,21 @@ module "cloud_function" {
   pubsub_topic = local.cloud_function.pubsub_topic
 
   archive_name         = "${terraform.workspace}--${local.cloud_function.archive_name}"
-  bucket_force_destroy = try(local.cloud_function.force_destroy, true)
+  bucket_force_destroy = local.cloud_function.force_destroy
 
   invoker_role   = try(local.cloud_function.invoker_role, "roles/cloudfunctions.invoker")
   invoker_member = try(local.cloud_function.invoker_member, "allUsers")
 
   service_account_email = module.profiles.cloud_function_service_account_email
 
-  stressload_key       = try(local.workspace.policies.stressload, "low")
-  stressload_config    = try(local.policies.stressload.levels[local.workspace.policies.stressload], {})
+  stressload_key       = local.workspace.policies.stressload
+  stressload_config    = local.policies.stressload.levels[local.workspace.policies.stressload]
   stressload_log_level = try(local.policies.stressload.logging.log_level, "info")
 
   stressload_policies    = local.policies.stressload
   cloud_function_profile = local.policies.profiles.cloud_function
 
+  auto_deploy = local.cloud_function.auto_deploy
 }
 
 # https://console.cloud.google.com/apis/api/compute.googleapis.com/metrics?authuser=1&invt=AbtQvg&project=<gcp-project-id>
@@ -103,7 +104,7 @@ module "compute" {
   instance_count = try(local.autoscaler.min, 1)
   instance_type  = local.type
 
-  gcp_credentials = var.gcp_credentials
+  gcp_credentials = local.provider.credentials
   gcp_project_id  = local.project_id
 
   network    = module.networking.vpc_network_id
@@ -186,11 +187,11 @@ module "load_balancer" {
 module "profiles" {
 
   source                                      = "./modules/gcp/profiles"
-  gcp_project_id                                  = local.project_id
+  gcp_project_id                              = local.project_id
   readonly_service_account_name               = "${terraform.workspace}--${local.policies.profiles.service.read_only.name}"
   cloud_function_service_account_name         = "${terraform.workspace}--${local.policies.profiles.cloud_function.read_only.name}"
   cloud_function_service_account_display_name = local.policies.profiles.cloud_function.read_only.caption
-  enable_cloud_function                       = try(local.cloud_function.enable, false)
+  enable_cloud_function                       = local.cloud_function.enable
 
 }
 

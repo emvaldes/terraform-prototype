@@ -1,4 +1,4 @@
-# File: modules/gcp/networking/manage.tf
+# File: modules/gcp/networking/networking.manage.tf
 # Version: 0.1.0
 
 resource "google_compute_network" "management_vpc" {

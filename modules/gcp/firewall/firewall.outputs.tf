@@ -1,4 +1,4 @@
-# File: /modules/gcp/firewall/outputs.tf
+# File: /modules/gcp/firewall/firewall.outputs.tf
 # Version: 0.1.0
 
 output "console_ips" {

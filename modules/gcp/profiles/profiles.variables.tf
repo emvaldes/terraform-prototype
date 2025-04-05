@@ -1,4 +1,4 @@
-# File: modules/gcp/profiles/variables.tf
+# File: modules/gcp/profiles/profiles.variables.tf
 # Version: 0.1.0
 
 variable "gcp_project_id" {

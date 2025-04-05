@@ -32,22 +32,27 @@ output "workspace" {
 
 output "cloud_function_name" {
   description = "The name of the deployed Cloud Function"
-  value       = var.enable_cloud_function ? module.cloud_function[0].function_name : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].function_name : null
 }
 
 output "cloud_function_url" {
   description = "The HTTPS trigger URL for the Cloud Function"
-  value       = var.enable_cloud_function ? module.cloud_function[0].function_url : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].function_url : null
+}
+
+output "cloud_function_upload_target" {
+  description = "Terraform target path for uploading the Cloud Function archive"
+  value       = module.cloud_function[0].upload_target
 }
 
 output "cloud_function_region" {
   description = "Region where the Cloud Function is deployed"
-  value       = var.enable_cloud_function ? module.cloud_function[0].function_region : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].function_region : null
 }
 
 output "cloud_function_bucket" {
   description = "The name of the bucket storing the Cloud Function source code"
-  value       = var.enable_cloud_function ? module.cloud_function[0].function_bucket : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].function_bucket : null
 }
 
 output "cloud_function_service_account_email" {
@@ -63,37 +68,37 @@ output "cloud_function_service_account_unique_id" {
 # --- Cloud Function - Stress Loading Outputs ---
 
 output "stressload_config" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_config : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_config : null
   description = "Resolved stressload level config from module"
 }
 
 output "stressload_function_bucket" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_function_bucket : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_function_bucket : null
   description = "Bucket storing the stressload Cloud Function archive"
 }
 
 output "stressload_function_name" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_function_name : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_function_name : null
   description = "Name of the stressload Cloud Function (null if disabled)"
 }
 
 output "stressload_function_region" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_function_region : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_function_region : null
   description = "Region of the deployed stressload Cloud Function"
 }
 
 output "stressload_function_service_account_email" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_function_service_account_email : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_function_service_account_email : null
   description = "Service account email for the stressload Cloud Function"
 }
 
 output "stressload_key" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_key : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_key : null
   description = "Resolved stressload level key from module"
 }
 
 output "stressload_log_level" {
-  value       = var.enable_cloud_function ? module.cloud_function[0].stressload_log_level : null
+  value       = local.cloud_function.enable ? module.cloud_function[0].stressload_log_level : null
   description = "Log level used by stressload tooling"
 }
 

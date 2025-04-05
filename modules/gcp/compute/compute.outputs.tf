@@ -1,4 +1,4 @@
-# File: /modules/gcp/compute/outputs.tf
+# File: /modules/gcp/compute/compute.outputs.tf
 # Version: 0.1.0
 
 output "instance_type" {
