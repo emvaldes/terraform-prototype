@@ -1001,7 +1001,7 @@ module.load_balancer.google_compute_global_forwarding_rule.http: Creation comple
 Apply complete! Resources: 31 added, 0 changed, 0 destroyed.
 ```
 
-```console
+```hcl
 Outputs:
 
 cloud_function_bucket = "dev--cloud-function-bucket"
@@ -1016,7 +1016,7 @@ compute_web_server_ip = "https://www.googleapis.com/compute/v1/projects/static-l
 compute_web_servers_group = "https://www.googleapis.com/compute/v1/projects/static-lead-454601-q1/regions/us-west2/instanceGroups/dev--web-servers-group"
 ```
 
-```json
+```hcl
 environment_config = {
   "description" = "Development environment"
   "id" = "dev"
@@ -1220,7 +1220,7 @@ web_backend_service_name = "dev--web-backend-service"
 workspace = "dev"
 ```
 
-```console
+```hcl
 $ terraform destroy ;
 
 module.compute.data.google_compute_zones.available: Reading...
@@ -2184,7 +2184,7 @@ Changes to Outputs:
   - workspace                                 = "dev" -> null
 ```
 
-```console
+```hcl
 Do you really want to destroy all resources in workspace "dev"?
   Terraform will destroy all your managed infrastructure, as shown above.
   There is no undo. Only 'yes' will be accepted to confirm.
@@ -2292,6 +2292,6 @@ module.networking.google_compute_network.vpc_network: Still destroying... [id=pr
 module.networking.google_compute_network.vpc_network: Destruction complete after 21s
 ```
 
-```console
+```hcl
 Destroy complete! Resources: 31 destroyed.
 ```
