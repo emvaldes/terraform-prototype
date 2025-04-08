@@ -5,15 +5,15 @@
 # set -xeuo pipefail
 
 # CONFIG
-STATE_PREFIX="terraform/state"
-MODE="${1:-}"
+REQUEST="${1:-}"
 
 POLICIES_FILE="./configs/policies.json"
 if [[ ! -f "${POLICIES_FILE}" ]]; then
   echo "Policies file not found: ${POLICIES_FILE}"
   exit 1
 fi
-BUCKET_NAME=$( jq -r '.storage.bucket.name' "${POLICIES_FILE}" )
+BUCKET_NAME=$( jq -r '.storage.bucket.name' "${POLICIES_FILE}" ) || exit 1 ;
+STATE_PREFIX="$( jq -r '.storage.bucket.prefix' "${POLICIES_FILE}" )" || exit 1 ;
 
 PROJECT_FILE="project.json"
 if [[ ! -f "${PROJECT_FILE}" ]]; then
@@ -78,8 +78,8 @@ function convert_to_json() {
   terraform show -json "$state_file" | jq . > "$json_file"
 }
 
-# DEFAULT MODE: no arguments
-if [[ -z "$MODE" ]]; then
+# DEFAULT REQUEST: no arguments
+if [[ -z "$REQUEST" ]]; then
   if gsutil ls -b gs://${BUCKET_NAME} >/dev/null 2>&1; then
     echo "Bucket exists: gs://${BUCKET_NAME}"
     exit 0
@@ -89,8 +89,8 @@ if [[ -z "$MODE" ]]; then
   fi
 fi
 
-# MODE: --create
-if [[ "$MODE" == "--create" ]]; then
+# REQUEST: --create
+if [[ "$REQUEST" == "--create" ]]; then
   if gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
     echo "Bucket already exists: gs://${BUCKET_NAME}"
   else
@@ -103,8 +103,8 @@ if [[ "$MODE" == "--create" ]]; then
   exit 0
 fi
 
-# MODE: --download
-if [[ "$MODE" == "--download" ]]; then
+# REQUEST: --download
+if [[ "$REQUEST" == "--download" ]]; then
   if ! gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
     echo "Bucket does not exist: gs://${BUCKET_NAME}"
     exit 1
@@ -117,8 +117,8 @@ if [[ "$MODE" == "--download" ]]; then
   exit 0
 fi
 
-# MODE: --destroy
-if [[ "$MODE" == "--destroy" ]]; then
+# REQUEST: --destroy
+if [[ "$REQUEST" == "--destroy" ]]; then
   if ! gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
     echo "Bucket already deleted: gs://${BUCKET_NAME}"
     exit 0
@@ -148,8 +148,8 @@ if [[ "$MODE" == "--destroy" ]]; then
   exit 0
 fi
 
-# MODE: --config
-if [[ "$MODE" == "--config" ]]; then
+# REQUEST: --config
+if [[ "$REQUEST" == "--config" ]]; then
   echo "Bucket configuration:"
   gcloud storage buckets describe "gs://${BUCKET_NAME}" --format=json
   exit 0
@@ -162,5 +162,5 @@ echo "  $0 --create      # Create GCS bucket if missing"
 echo "  $0 --download    # Download available Terraform state files"
 echo "  $0 --destroy     # Destroy bucket (only if safe)"
 echo "  $0 --config      # Show bucket configuration"
-echo "  $0               # Check if bucket exists (no-op mode)"
+echo "  $0               # Check if bucket exists (no-op REQUEST)"
 exit 1

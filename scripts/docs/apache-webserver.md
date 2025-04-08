@@ -35,7 +35,7 @@ It can be used across development, staging, and production environments to verif
 ### As a GCP Startup Script
 The most common usage is as a startup script in an instance template:
 
-```hcl
+```terraform
 metadata = {
   startup-script = file("${path.module}/scripts/configure/apache-webserver.shell")
 }

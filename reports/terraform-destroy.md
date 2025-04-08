@@ -1,5 +1,5 @@
 
-```hcl
+```terraform
 $ terraform destroy ;
 
 module.compute.data.google_compute_zones.available: Reading...
@@ -37,7 +37,7 @@ module.load_balancer.google_compute_global_forwarding_rule.http: Refreshing stat
 module.networking.google_service_networking_connection.cloudsql_psa_connection: Refreshing state... [id=projects%2F<gcp-project-name>%2Fglobal%2Fnetworks%2Fdev--webapp-vpc:servicenetworking.googleapis.com]
 ```
 
-```hcl
+```terraform
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
   - destroy
 
@@ -902,7 +902,7 @@ Changes to Outputs:
   - workspace                                 = "dev" -> null
 ```
 
-```hcl
+```terraform
 Do you really want to destroy all resources in workspace "dev"?
   Terraform will destroy all your managed infrastructure, as shown above.
   There is no undo. Only 'yes' will be accepted to confirm.
@@ -910,7 +910,7 @@ Do you really want to destroy all resources in workspace "dev"?
   Enter a value: yes
 ```
 
-```hcl
+```terraform
 module.profiles.google_project_iam_member.monitoring_viewer: Destroying... [id=<gcp-project-name>/roles/monitoring.viewer/serviceAccount:dev--ro--service-account@<gcp-project-name>.iam.gserviceaccount.com]
 module.profiles.google_project_iam_member.cloud_function_compute_viewer[0]: Destroying... [id=<gcp-project-name>/roles/compute.viewer/serviceAccount:dev--ro--cloud-function@<gcp-project-name>.iam.gserviceaccount.com]
 module.profiles.google_project_iam_member.compute_viewer: Destroying... [id=<gcp-project-name>/roles/compute.viewer/serviceAccount:dev--ro--service-account@<gcp-project-name>.iam.gserviceaccount.com]
@@ -1011,6 +1011,6 @@ module.networking.google_compute_network.vpc_network: Still destroying... [id=pr
 module.networking.google_compute_network.vpc_network: Destruction complete after 21s
 ```
 
-```hcl
+```terraform
 Destroy complete! Resources: 31 destroyed.
 ```

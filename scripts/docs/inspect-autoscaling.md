@@ -154,17 +154,17 @@ Summary:
   Size/request:	62 bytes
 
 Response time histogram:
-  0.017 [1]	|
+  0.017 [1]	      |
   0.283 [109827]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-  0.549 [844]	|
-  0.815 [176]	|
-  1.081 [112]	|
-  1.347 [30]	|
-  1.613 [8]	|
-  1.879 [7]	|
-  2.145 [7]	|
-  2.411 [0]	|
-  2.677 [8]	|
+  0.549 [844]	    |
+  0.815 [176]	    |
+  1.081 [112] 	  |
+  1.347 [30]	    |
+  1.613 [8]     	|
+  1.879 [7]     	|
+  2.145 [7]     	|
+  2.411 [0]     	|
+  2.677 [8]     	|
 
 
 Latency distribution:
@@ -223,38 +223,38 @@ Summary:
   Size/request:	60 bytes
 
 Response time histogram:
-  0.016 [1]	|
-  0.126 [107236]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-  0.235 [2653]	|■
-  0.344 [128]	|
-  0.453 [49]	|
-  0.563 [45]	|
-  0.672 [6]	|
-  0.781 [15]	|
-  0.890 [3]	|
-  1.000 [0]	|
-  1.109 [3]	|
+  0.018 [1]	    |
+  0.042 [32783]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.066 [836]	  |■
+  0.091 [21]	  |
+  0.115 [52]	  |
+  0.139 [44]	  |
+  0.164 [18]	  |
+  0.188 [1]	    |
+  0.212 [304]	  |
+  0.236 [3129]	|■■■■
+  0.261 [816]	  |■
 
 
 Latency distribution:
-  10% in 0.0230 secs
-  25% in 0.0251 secs
-  50% in 0.0278 secs
-  75% in 0.0320 secs
-  90% in 0.0385 secs
-  95% in 0.0651 secs
-  99% in 0.1736 secs
+  10% in 0.0226 secs
+  25% in 0.0250 secs
+  50% in 0.0273 secs
+  75% in 0.0303 secs
+  90% in 0.2136 secs
+  95% in 0.2234 secs
+  99% in 0.2432 secs
 
 Details (average, fastest, slowest):
-  DNS+dialup:	0.0002 secs, 0.0163 secs, 1.1089 secs
+  DNS+dialup:	0.0002 secs, 0.0178 secs, 0.2606 secs
   DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
-  req write:	0.0000 secs, 0.0000 secs, 0.0002 secs
-  resp wait:	0.0339 secs, 0.0163 secs, 1.1089 secs
-  resp read:	0.0000 secs, 0.0000 secs, 0.0006 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0004 secs
+  resp wait:	0.0496 secs, 0.0178 secs, 0.2606 secs
+  resp read:	0.0000 secs, 0.0000 secs, 0.0007 secs
 
 Status code distribution:
-  [200]	109469 responses
-  [502]	670 responses
+  [200]	37953 responses
+  [502]	52 responses
 ```
 
 ```console
@@ -302,116 +302,38 @@ Summary:
   Size/request:	59 bytes
 
 Response time histogram:
-  0.017 [1]	|
-  0.033 [66751]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-  0.050 [1058]	|■
-  0.066 [306]	|
-  0.082 [0]	|
-  0.099 [0]	|
-  0.115 [1]	|
-  0.132 [50]	|
-  0.148 [22]	|
-  0.165 [35]	|
-  0.181 [18]	|
+  0.018 [1]	    |
+  0.038 [17780]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.057 [225]	  |■
+  0.077 [5]	    |
+  0.097 [35]	  |
+  0.117 [24]	  |
+  0.136 [46]	  |
+  0.156 [265]	  |■
+  0.176 [1377]	|■■■
+  0.196 [768]	  |■■
+  0.216 [22]	  |
 
 
 Latency distribution:
-  10% in 0.0233 secs
-  25% in 0.0258 secs
-  50% in 0.0274 secs
-  75% in 0.0287 secs
-  90% in 0.0301 secs
-  95% in 0.0312 secs
-  99% in 0.0458 secs
+  10% in 0.0242 secs
+  25% in 0.0268 secs
+  50% in 0.0290 secs
+  75% in 0.0316 secs
+  90% in 0.1571 secs
+  95% in 0.1663 secs
+  99% in 0.1893 secs
 
 Details (average, fastest, slowest):
-  DNS+dialup:	0.0001 secs, 0.0166 secs, 0.1812 secs
+  DNS+dialup:	0.0001 secs, 0.0177 secs, 0.2156 secs
   DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
-  req write:	0.0000 secs, 0.0000 secs, 0.0002 secs
-  resp wait:	0.0274 secs, 0.0166 secs, 0.1812 secs
-  resp read:	0.0000 secs, 0.0000 secs, 0.0003 secs
+  req write:	0.0000 secs, 0.0000 secs, 0.0001 secs
+  resp wait:	0.0453 secs, 0.0177 secs, 0.2156 secs
+  resp read:	0.0000 secs, 0.0000 secs, 0.0005 secs
 
 Status code distribution:
-  [200]	68221 responses
-  [502]	21 responses
-```
-
-```console
-[Phase: Recovery] Duration: 15s | Concurrency: 62
-
-[Inspecting Instances in MIG: dev--web-servers-group]
-Current instances running: 2
-```
-
-```json
-[
-  {
-    "currentAction": "NONE",
-    "id": "4948940550269916065",
-    "instance": "https://www.googleapis.com/compute/v1/projects/<gcp-project-name>/zones/us-west2-a/instances/dev--web-server-n1k6",
-    "instanceStatus": "RUNNING",
-    "name": "dev--web-server-n1k6",
-    "version": {
-      "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/<gcp-project-name>/global/instanceTemplates/dev--web-server-template--20250405074759047200000001"
-    }
-  },
-  {
-    "currentAction": "NONE",
-    "id": "1747512472322793130",
-    "instance": "https://www.googleapis.com/compute/v1/projects/<gcp-project-name>/zones/us-west2-c/instances/dev--web-server-bn6l",
-    "instanceStatus": "RUNNING",
-    "name": "dev--web-server-bn6l",
-    "version": {
-      "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/<gcp-project-name>/global/instanceTemplates/dev--web-server-template--20250405074759047200000001"
-    }
-  }
-]
-```
-
-```console
-Summary:
-
-  Total:	15.0250 secs
-  Slowest:	0.1129 secs
-  Fastest:	0.0167 secs
-  Average:	0.0270 secs
-  Requests/sec:	2293.7739
-
-  Total data:	2033376 bytes
-  Size/request:	59 bytes
-
-Response time histogram:
-  0.017 [1]	|
-  0.026 [12181]	|■■■■■■■■■■■■■■■■■■■■■■
-  0.036 [22017]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-  0.046 [191]	|
-  0.055 [12]	|
-  0.065 [0]	|
-  0.074 [9]	|
-  0.084 [2]	|
-  0.094 [13]	|
-  0.103 [19]	|
-  0.113 [19]	|
-
-
-Latency distribution:
-  10% in 0.0222 secs
-  25% in 0.0254 secs
-  50% in 0.0276 secs
-  75% in 0.0287 secs
-  90% in 0.0300 secs
-  95% in 0.0306 secs
-  99% in 0.0341 secs
-
-Details (average, fastest, slowest):
-  DNS+dialup:	0.0001 secs, 0.0167 secs, 0.1129 secs
-  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
-  req write:	0.0000 secs, 0.0000 secs, 0.0008 secs
-  resp wait:	0.0269 secs, 0.0167 secs, 0.0567 secs
-  resp read:	0.0000 secs, 0.0000 secs, 0.0011 secs
-
-Status code distribution:
-  [200]	34464 responses
+  [200]	20545 responses
+  [502]	3 responses
 ```
 
 ```console

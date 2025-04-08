@@ -1,0 +1,342 @@
+╷
+│ Error: Error when reading or editing Project Service devops-workflows-000/servicenetworking.googleapis.com: googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.networking.google_project_service.servicenetworking,
+│   on modules/gcp/networking/networking.tf line 40, in resource "google_project_service" "servicenetworking":
+│   40: resource "google_project_service" "servicenetworking" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/compute.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/compute.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.compute_viewer,
+│   on modules/gcp/profiles/profiles.tf line 17, in resource "google_project_iam_member" "compute_viewer":
+│   17: resource "google_project_iam_member" "compute_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/monitoring.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/monitoring.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.monitoring_viewer,
+│   on modules/gcp/profiles/profiles.tf line 23, in resource "google_project_iam_member" "monitoring_viewer":
+│   23: resource "google_project_iam_member" "monitoring_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/logging.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/logging.viewer serviceAccount:dev--ro--service-account@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.logging_viewer,
+│   on modules/gcp/profiles/profiles.tf line 29, in resource "google_project_iam_member" "logging_viewer":
+│   29: resource "google_project_iam_member" "logging_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/compute.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/compute.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.cloud_function_compute_viewer[0],
+│   on modules/gcp/profiles/profiles.tf line 52, in resource "google_project_iam_member" "cloud_function_compute_viewer":
+│   52: resource "google_project_iam_member" "cloud_function_compute_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/monitoring.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/monitoring.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.cloud_function_monitoring_viewer[0],
+│   on modules/gcp/profiles/profiles.tf line 61, in resource "google_project_iam_member" "cloud_function_monitoring_viewer":
+│   61: resource "google_project_iam_member" "cloud_function_monitoring_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/logging.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/logging.viewer serviceAccount:dev--ro--cloud-function@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.cloud_function_logging_viewer[0],
+│   on modules/gcp/profiles/profiles.tf line 70, in resource "google_project_iam_member" "cloud_function_logging_viewer":
+│   70: resource "google_project_iam_member" "cloud_function_logging_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/logging.viewer serviceAccount:gcp-cli-admin@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/logging.viewer serviceAccount:gcp-cli-admin@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.cli_admin_logging_viewer,
+│   on modules/gcp/profiles/profiles.tf line 80, in resource "google_project_iam_member" "cli_admin_logging_viewer":
+│   80: resource "google_project_iam_member" "cli_admin_logging_viewer" {
+│ 
+╵
+╷
+│ Error: Request `Create IAM Members roles/storage.admin serviceAccount:gcp-cli-admin@devops-workflows-000.iam.gserviceaccount.com for project "devops-workflows-000"` returned error: Batch request and retried single request "Create IAM Members roles/storage.admin serviceAccount:gcp-cli-admin@devops-workflows-000.iam.gserviceaccount.com for project \"devops-workflows-000\"" both failed. Final error: Error retrieving IAM policy for project "devops-workflows-000": googleapi: Error 403: Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "googleapis.com",
+│     "metadata": {
+│       "activationUrl": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825",
+│       "consumer": "projects/413460672825",
+│       "containerInfo": "413460672825",
+│       "service": "cloudresourcemanager.googleapis.com",
+│       "serviceTitle": "Cloud Resource Manager API"
+│     },
+│     "reason": "SERVICE_DISABLED"
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+│     "locale": "en-US",
+│     "message": "Cloud Resource Manager API has not been used in project 413460672825 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.Help",
+│     "links": [
+│       {
+│         "description": "Google developers console API activation",
+│         "url": "https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=413460672825"
+│       }
+│     ]
+│   }
+│ ]
+│ , accessNotConfigured
+│ 
+│   with module.profiles.google_project_iam_member.cli_admin_storage_admin,
+│   on modules/gcp/profiles/profiles.tf line 86, in resource "google_project_iam_member" "cli_admin_storage_admin":
+│   86: resource "google_project_iam_member" "cli_admin_storage_admin" {
+│ 
+╵

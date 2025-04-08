@@ -1,6 +1,6 @@
 {
     "provider": "gcp",
-    "project_id": "static-lead-454601-q1",
+    "project_id": "",
     "credentials": "",
     "regions": {
         "west": "us-west2",

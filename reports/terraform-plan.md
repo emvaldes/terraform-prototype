@@ -1,4 +1,4 @@
-```hcl
+```terraform
 $ terraform init ;
 
 Initializing the backend...
@@ -49,7 +49,7 @@ $ terraform validate ;
 Success! The configuration is valid.
 ```
 
-```hcl
+```terraform
 $ terraform plan ;
 
 module.compute.data.google_compute_zones.available: Reading...

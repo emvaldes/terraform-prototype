@@ -3,7 +3,7 @@
 
 terraform {
   backend "gcs" {
-    bucket = "multi-cloud-terraform-state"
+    bucket = "terraform-prototype"
     prefix = "terraform/state"
   }
 }

@@ -12,7 +12,17 @@ locals {
   provider_id = local.project.defaults.provider
 
   # Provider config (cloud-specific)
-  provider   = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
+  provider_default   = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
+  
+  # Final provider config, overriding project_id if passed via env
+  provider = merge(
+    local.provider_default,
+    {
+      project_id = var.gcp_project_id
+    }
+  )
+
+  # Use the overridden project_id
   project_id = local.provider.project_id
 
   # Workspace/target config (env-specific)

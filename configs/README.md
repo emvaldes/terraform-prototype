@@ -17,7 +17,7 @@ All Terraform modules, GitHub workflows, and scripts rely on the data from this 
 Each file is designed to map **abstracted values** (like `region = west`) to real values (`us-west2`, etc.), ensuring portability and multi-cloud alignment.
 
 ## Example: `gcp.tfvars`
-```hcl
+```terraform
 cloud_provider = "gcp"
 gcp_project_id = "<gcp-project-id>"
 region         = "us-west2"

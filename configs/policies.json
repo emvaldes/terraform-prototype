@@ -41,7 +41,8 @@
     },
     "storage": {
         "bucket": {
-            "name": "multi-cloud-terraform-state"
+            "name": "terraform-prototype",
+            "prefix": "terraform/state"
         }
     },
     "stressload": {

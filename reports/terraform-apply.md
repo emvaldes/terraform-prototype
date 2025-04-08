@@ -1,4 +1,4 @@
-```hcl
+```terraform
 $ terraform apply ;
 module.compute.data.google_compute_zones.available: Reading...
 module.compute.data.google_compute_zones.available: Read complete after 0s [id=projects/<gcp-project-name>/regions/us-west2]
@@ -797,7 +797,7 @@ Do you want to perform these actions in workspace "dev"?
   Enter a value: yes
 ```
 
-```hcl
+```terraform
 module.profiles.google_project_iam_member.cli_admin_storage_admin: Creating...
 module.profiles.google_project_iam_member.cli_admin_logging_viewer: Creating...
 module.networking.google_project_service.servicenetworking: Creating...
@@ -897,7 +897,7 @@ module.load_balancer.google_compute_global_forwarding_rule.http: Creation comple
 Apply complete! Resources: 31 added, 0 changed, 0 destroyed.
 ```
 
-```hcl
+```terraform
 Outputs:
 
 cloud_function_bucket = "dev--cloud-function-bucket"

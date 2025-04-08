@@ -160,17 +160,17 @@ This framework is designed to enable **automated, cloud-agnostic infrastructure 
 
 ## Infrastructure Components
 
-### 1. **Compute Layer** (`compute.tf`, `scrits/configure/apache-webserver.shell`)
+#### 1. **Compute Layer** (`compute.tf`, `scrits/configure/apache-webserver.shell`)
 - Manages lifecycle of VM instances across GCP regions
 - Instance names, sizes, and replica counts sourced from `workspaces.json`
 - Designed to integrate with GCP health checks and managed instance groups
 
-### 2. **Networking & Firewall** (`networking.tf`, `firewall.tf`, `allowed.json`)
+#### 2. **Networking & Firewall** (`networking.tf`, `firewall.tf`, `allowed.json`)
 - Creates isolated virtual networks (VPCs)
 - Subnet definitions scoped per region
 - Firewall ingress and egress rules enforced from `allowed.json` inputs
 
-### 3. **Load Balancing** (`router.tf`, `./scripts/manage/inspect-services.shell`)
+#### 3. **Load Balancing** (`router.tf`, `./scripts/manage/inspect-services.shell`)
 - Instantiates HTTP(S) Global Load Balancer components:
   - Global forwarding rule
   - Target proxy
@@ -178,19 +178,759 @@ This framework is designed to enable **automated, cloud-agnostic infrastructure 
   - Health check with regional scope
 - Scripted inspection returns JSON overview of all key load balancer components
 
-### 4. **Routing & NAT Configuration** (`router.tf`)
+#### 4. **Routing & NAT Configuration** (`router.tf`)
 - Enables NAT gateway for instances without public IPs
 - Ensures egress connectivity for patching, installation, and monitoring
 - Cloud router setup is fully automated
 
-### 5. **State Management** (`./scripts/manage/terraform-backend.shell`, `backend.tf`, `project.json`)
+#### 5. **State Management** (`./scripts/manage/terraform-backend.shell`, `backend.tf`, `project.json`)
 - Validates bucket existence or creates it securely using `gsutil`
 - When `destroy` is run, conditionally downloads remote state to `.local/`
 - Supports state file introspection and traceability via artifacts
 
 ---
 
+#### Download & install (latest version):
+
+```bash
+$ target_package="google-cloud-cli-457.0.0-linux-x86_64.tar.gz" ;
+$ curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${target_package} ;
+$ tar -xf google-cloud-cli-*.tar.gz ;
+$ ./google-cloud-sdk/install.sh ;
+```
+
+---
+
+#### Backup Local Configuration
+
+```bash
+$ GCP_HOME="${HOME}/.gcp" ;
+$ GCP_BACKUPS="${GCP_HOME}/backups" ;
+
+$ mkdir -p ${GCP_BACKUPS}/ ;
+$ cp -prv ${HOME}/.config/gcloud ${GCP_BACKUPS}/ ;
+
+$ gcloud config configurations \
+         list --format=json > ${HOME}/.gcp/backups/configurations.json ;
+$ gcloud config configurations \
+         describe default > ${HOME}/.gcp/backups/default-configs.yaml ;
+$ gcloud iam service-accounts \
+         list --format=json > ${HOME}/.gcp/backups/service-accounts.json ;
+```
+
+#### Purging GCP Project (default/current)
+
+```bash
+$ gcloud projects delete $( gcloud config get-value project --quiet )$
+Your project will be deleted.
+
+Do you want to continue (Y/n)?  Y
+
+Deleted [https://cloudresourcemanager.googleapis.com/v1/projects/<gcp-project-name>].
+
+You can undo this operation for a limited period by running the command below.
+    $ gcloud projects undelete $( gcloud config get-value project --quiet )$
+
+See https://cloud.google.com/resource-manager/docs/creating-managing-projects 
+for information on shutting down projects.
+```
+
+---
+
+#### Initializing GCP Configurations
+
+##### Follow the prompts to:
+
+- Authenticate with your Google account
+- Choose a GCP project or create a new one
+- Set a default region and zone
+
+```bash
+$ gcloud init --console-only ;
+```
+
+##### This will allow Google Cloud SDK to:
+
+- See, edit, configure, and delete your Google Cloud data and see the email address for your Google Account.
+- View and sign in to your Google Cloud SQL instances
+- View and manage your Google Compute Engine resources
+- View and manage your applications deployed on Google App Engine
+
+##### Copy the URL, open in browser manually, paste the code back in the terminal.
+
+```bash
+$ gcloud init --console-only ;
+
+Welcome! This command will take you through the configuration of gcloud.
+
+Your current configuration has been set to: [default]
+
+You can skip diagnostics next time by using the following flag:
+  gcloud init --skip-diagnostics
+
+Network diagnostic detects and fixes local network connection issues.
+Checking network connection...done.                                                                                                                                                                                                                       
+Reachability Check passed.
+Network diagnostic passed (1/1 checks passed).
+
+You must sign in to continue. Would you like to sign in (Y/n)?  Y
+
+Go to the following link in your browser, and complete the sign-in prompts:
+
+    https://accounts.google.com/o/oauth2/auth?response_type=code
+    &client_id=<client-id>.apps.googleusercontent.com
+    &redirect_uri=https://sdk.cloud.google.com/authcode.html
+    &scope=openid+
+    https://www.googleapis.com/auth/userinfo.email+
+    https://www.googleapis.com/auth/cloud-platform+
+    https://www.googleapis.com/auth/appengine.admin+
+    https://www.googleapis.com/auth/sqlservice.login+
+    https://www.googleapis.com/auth/compute+
+    https://www.googleapis.com/auth/accounts.reauth
+    &state=<account-state>
+    &prompt=consent
+    &token_usage=remote
+    &access_type=offline
+    &code_challenge=<code-challenge-query>
+    &code_challenge_method=S256
+
+Once finished, enter the verification code provided in your browser: <code-challenge-response>
+You are signed in as: [<gcp-account-email>].
+
+This account has no projects.
+
+Would you like to create one? (Y/n)?  Y
+
+Enter a Project ID. Note that a Project ID CANNOT be changed later.
+Project IDs must be 6-30 characters (lowercase ASCII, digits, or
+hyphens) in length and start with a lowercase letter. <gcp-project-name>
+Waiting for [operations/create_project.global.<gcp-account-number>] to finish...done.                                                                                                                                                                      
+Your current project has been set to: [<gcp-project-name>].
+
+Not setting default zone/region (this feature makes it easier to use
+[gcloud compute] by setting an appropriate default value for the
+--zone and --region flag).
+See https://cloud.google.com/compute/docs/gcloud-compute section on how to set
+default compute region and zone manually. If you would like [gcloud init] to be
+able to do this for you the next time you run it, make sure the
+Compute Engine API is enabled for your project on the
+https://console.developers.google.com/apis page.
+
+Created a default .boto configuration file at [${HOME}/.boto]. See this file and
+[https://cloud.google.com/storage/docs/gsutil/commands/config] for more
+information about configuring Google Cloud Storage.
+The Google Cloud CLI is configured and ready to use!
+
+* Commands that require authentication will use <gcp-account-email> by default
+* Commands will reference project `<gcp-project-name>` by default
+Run `gcloud help config` to learn how to change individual settings
+
+This gcloud configuration is called [default]. 
+You can create additional configurations if you work with multiple accounts and/or projects.
+Run `gcloud topic configurations` to learn more.
+
+Some things to try next:
+
+* Run `gcloud --help` to see the Cloud Platform services you can interact with. 
+  And run `gcloud help COMMAND` to get help on any gcloud command.
+* Run `gcloud topic --help` to learn about advanced features of the CLI like arg files and output formatting
+* Run `gcloud cheat-sheet` to see a roster of go-to `gcloud` commands.
+```
+
+```bash
+$ gcloud services enable iam.googleapis.com compute.googleapis.com ;
+
+ERROR: (gcloud.services.enable) FAILED_PRECONDITION: 
+       Billing account for project '<gcp-account-number>' is not found. 
+       Billing must be enabled for activation of service(s) 
+       'compute.googleapis.com,compute.googleapis.com,compute.googleapis.com' to proceed.
+Help Token: <gcp-service-token>
+
+- '@type': type.googleapis.com/google.rpc.PreconditionFailure
+  violations:
+  - subject: ?error_code=390001
+             &project=<gcp-account-number>
+             &services=compute.googleapis.com
+             &services=compute.googleapis.com
+             &services=compute.googleapis.com
+    type: googleapis.com/billing-enabled
+
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: serviceusage.googleapis.com/billing-enabled
+  metadata:
+    project: '<gcp-account-number>'
+    services: compute.googleapis.com,compute.googleapis.com,compute.googleapis.com
+  reason: UREQ_PROJECT_BILLING_NOT_FOUND
+```
+
+```bash
+$ gcloud beta billing accounts list ;
+
+You do not currently have this command group installed.  Using it 
+requires the installation of components: [beta]
+
+
+Your current Google Cloud CLI version is: 517.0.0
+Installing components from version: 517.0.0
+
+┌─────────────────────────────────────────────┐
+│     These components will be installed.     │
+├──────────────────────┬────────────┬─────────┤
+│         Name         │  Version   │   Size  │
+├──────────────────────┼────────────┼─────────┤
+│ gcloud Beta Commands │ 2025.03.29 │ < 1 MiB │
+└──────────────────────┴────────────┴─────────┘
+
+For the latest full release notes, please visit:
+  https://cloud.google.com/sdk/release_notes
+
+Once started, canceling this operation may leave your SDK installation in an inconsistent state.
+
+Do you want to continue (Y/n)?  Y
+
+Performing in place update...
+
+╔════════════════════════════════════════════════════════════╗
+╠═ Downloading: gcloud Beta Commands                        ═╣
+╠════════════════════════════════════════════════════════════╣
+╠═ Installing: gcloud Beta Commands                         ═╣
+╚════════════════════════════════════════════════════════════╝
+
+Performing post processing steps...done.                                                                                                                                                                                                                  
+
+Update done!
+
+Restarting command:
+  $ gcloud beta billing accounts list
+
+API [cloudbilling.googleapis.com] not enabled on project [<gcp-project-name>]. 
+Would you like to enable and retry (this will take a few minutes)? (y/N)?  y
+
+Enabling service [cloudbilling.googleapis.com] on project [<gcp-project-name>]...
+
+ERROR: (gcloud.beta.billing.accounts.list) PERMISSION_DENIED: 
+Service Usage API has not been used in project <gcp-project-name> before or it is disabled. 
+Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry. 
+If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. 
+This command is authenticated as <gcp-account-email> which is the active account specified by the [core/account] property.
+
+Service Usage API has not been used in project <gcp-project-name> before or it is disabled. 
+Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry. 
+If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+
+Google developers console API activation
+https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name>
+
+- '@type': type.googleapis.com/google.rpc.ErrorInfo
+  domain: googleapis.com
+  metadata:
+    activationUrl: https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name>
+    consumer: projects/<gcp-project-name>
+    containerInfo: <gcp-project-name>
+    service: serviceusage.googleapis.com
+    serviceTitle: Service Usage API
+  reason: SERVICE_DISABLED
+```
+
+```bash
+$ gcloud beta billing accounts list --format=json ;
+
+[
+  {
+    "currencyCode": "USD",
+    "displayName": "My Billing Account",
+    "masterBillingAccount": "",
+    "name": "billingAccounts/<gcp-billing-account>",
+    "open": true,
+    "parent": ""
+  }
+]
+```
+
+```bash
+$ gcloud beta billing projects \
+         link $( gcloud config get-value project --quiet )$ \
+         --billing-account <gcp-billing-account> ;
+
+  billingAccountName: billingAccounts/<gcp-billing-account>
+  billingEnabled: true
+  name: projects/<gcp-project-name>/billingInfo
+  projectId: <gcp-project-name>
+```
+
+```bash
+$ gcloud beta billing projects describe $( gcloud config get-value project) ;
+
+API [cloudbilling.googleapis.com] not enabled on project [<gcp-project-number>]. Would you like to enable and retry (this will take a few minutes)? (y/N)?  y
+
+Enabling service [cloudbilling.googleapis.com] on project [<gcp-project-number>]...
+Operation "operations/acat.p2-<gcp-project-number>-<operation-unique-identifier>" finished successfully.
+billingAccountName: billingAccounts/<gcp-billing-account>
+billingEnabled: true
+name: projects/<gcp-project-name>/billingInfo
+projectId: <gcp-project-name>
+```
+
+```bash
+$ gcloud services enable \
+         iam.googleapis.com compute.googleapis.com ;
+
+  Operation "operations/acf.p2-<gcp-account-number>-<service-serial-number>" finished successfully.
+```
+
+```bash
+$ gcloud iam service-accounts \
+         create gcp-cli-admin \
+         --display-name "GCP CLI Admin" ;
+
+  Created service account [gcp-cli-admin].
+```
+
+```bash
+$ gcloud projects add-iam-policy-binding <gcp-project-name> \
+         --member="serviceAccount:gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com" \
+         --role="roles/owner" ;
+
+  Updated IAM policy for project [<gcp-project-name>].
+
+  bindings:
+  - members:
+  - serviceAccount:service-<gcp-account-number>@compute-system.iam.gserviceaccount.com
+
+  role: roles/compute.serviceAgent
+  - members:
+  - serviceAccount:<gcp-account-number>-compute@developer.gserviceaccount.com
+  - serviceAccount:<gcp-account-number>@cloudservices.gserviceaccount.com
+
+  role: roles/editor
+  - members:
+  - serviceAccount:gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com
+  - user:<gcp-account-email>
+
+  role: roles/owner
+
+  etag: BwYyRXUa4Ps=
+  version: 1
+```
+
+```bash
+$ gcloud iam service-accounts keys \
+         create ${HOME}/.gcp/credentials.json \
+         --iam-account gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com ;
+
+  created key [<gcp-private-keyid>] of type [json] as [${HOME}/.gcp/credentials.json] 
+  for [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
+```
+
+```bash
+$ ls -al ${HOME}/.gcp/credentials.json ;
+  -rw-------  1 <user-id>  staff  2380 Jan  1 00:00 ${HOME}/.gcp/credentials.json
+```
+
+```bash
+$ bat ${HOME}/.gcp/credentials.json ;
+     │ File: ${HOME}/.gcp/credentials.json
+  1  │ {
+  2  │   "type": "service_account",
+  3  │   "project_id": "<gcp-project-name>",
+  4  │   "private_key_id": "<gcp-private-keyid>",
+  5  │   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBAD...mUziEzFz5s=\n-----END PRIVATE KEY-----\n",
+  6  │   "client_email": "gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com",
+  7  │   "client_id": "<gcp-client-id>",
+  8  │   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  9  │   "token_uri": "https://oauth2.googleapis.com/token",
+ 10  │   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+ 11  │   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/gcp-cli-admin%40<gcp-project-name>.iam.gserviceaccount.com",
+ 12  │   "universe_domain": "googleapis.com"
+ 13  │ }
+```
+
+```bash
+$ gcloud auth activate-service-account --key-file=${HOME}/.gcp/credentials.json ;
+
+  Activated service account credentials for: [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
+```
+
+```bash
+$ gcloud config set compute/region us-west2 ;
+
+  WARNING: Property validation for compute/region was skipped.
+  Updated property [compute/region].
+
+$ gcloud config get-value compute/region ;
+  us-west2
+```
+
+```bash
+$ gcloud config set compute/zone us-west2-a ;
+  WARNING: Property validation for compute/zone was skipped.
+  Updated property [compute/zone].
+
+$ gcloud config get-value compute/zone ;
+  us-west2-a
+```
+
+```bash
+$ gcloud iam service-accounts keys \
+         create ${HOME}/.gcp/credentials.json \
+         --iam-account $(
+            gcloud auth list --filter=status:ACTIVE --format="value(account)"
+        ) ;
+  # created key [<gcp-created-keyid>] of type [json] 
+  # as [${HOME}/.gcp/credentials.json] for [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
+```
+
+---
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="${HOME}/.gcp/credentials.json";
+export GCP_CREDENTIALS="$( cat ${GOOGLE_APPLICATION_CREDENTIALS} | base64 )";
+
+export GCP_PROJECT_ID=$(
+  jq -r .project_id "${GOOGLE_APPLICATION_CREDENTIALS}"
+) ; ## echo -e "Project ID: ${GCP_PROJECT_ID}" ;
+
+export TF_VAR_gcp_project_id="${GCP_PROJECT_ID}";
+```
+
+##### Note: This will become active in the /locals.tf file:
+
+```terraform
+# File: /locals.tf
+# Version: 0.1.0
+
+# Description: Contains all local values used across modules
+
+locals {
+
+  # Load dispatcher
+  project = jsondecode(file("${path.root}/project.json"))
+
+  # Active provider ID
+  provider_id = local.project.defaults.provider
+
+  # Provider config (cloud-specific)
+  provider_default   = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
+  
+  # Final provider config, overriding project_id if passed via env
+  provider = merge(
+    local.provider_default,
+    {
+      project_id = var.gcp_project_id
+    }
+  )
+
+  # Use the overridden project_id
+  project_id = local.provider.project_id
+
+...
+
+}
+```
+
+---
+
+```bash
+$ gcloud auth list ;
+                      Credentialed Accounts
+ACTIVE  ACCOUNT
+        <gcp-account-email>@gmail.com
+*       gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com
+
+To set the active account, run:
+    $ gcloud config set account `ACCOUNT`
+
+```
+
+---
+
+##### Terraform State Backend setup
+
+**Warning**: Terraform cannot create its own backend storage (GCS bucket) because its a pre-existing requirement to run. The bucket must:
+
+- Already exist
+- Be accessible by the service account
+
+```bash
+POLICIES_FILE="./configs/policies.json" ;
+export TERRAFORM_BACKEND_BUCKET=$( jq -r '.storage.bucket.name' "${POLICIES_FILE}" ) ;
+```
+
+**Note**: You have the option to use a native request or use the ./scripts/manage/terraform-backend.shell script to manage this process.
+
+```bash
+$ gsutil mb -p <gcp-project-name> \
+         -l us-west2 \
+         -b on gs://${TERRAFORM_BACKEND_BUCKET} ;
+```
+
+or
+
+```bash
+$ ./scripts/manage/terraform-backend.shell ;
+Bucket does not exist: gs://<terraform-backend-bucket>
+
+$ ./scripts/manage/terraform-backend.shell --create ;
+
+Creating bucket: gs://<terraform-backend-bucket>
+Creating gs://<terraform-backend-bucket>/...
+Bucket created.
+```
+
+```json
+Bucket configuration:
+{
+  "creation_time": "2025-01-01T007:00:00+0000",
+  "default_storage_class": "STANDARD",
+  "generation": <generation-index>,
+  "location": "US",
+  "location_type": "multi-region",
+  "metageneration": 1,
+  "name": "<terraform-backend-bucket>",
+  "public_access_prevention": "inherited",
+  "rpo": "DEFAULT",
+  "soft_delete_policy": {
+    "effectiveTime": "2025-01-01T00:00:00.000000+00:00",
+    "retentionDurationSeconds": "604800"
+  },
+  "storage_url": "gs://<terraform-backend-bucket>/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2025-01-01T00:00:00+0000"
+}
+```
+
+---
+
+```bash
+$ gcloud services \
+         enable cloudresourcemanager.googleapis.com \
+         --format=json ;
+  Operation "operations/acat.p2-<gcp-project-number>-<operation-unique-identifier>" finished successfully.
+  []
+```
+
+```json
+$ gcloud services \
+         list --enabled \
+         --filter="config.name=cloudresourcemanager.googleapis.com" \
+         --format=json ;
+
+[
+  {
+    "config": {
+      "authentication": {},
+      "documentation": {
+        "summary": "Creates, reads, and updates metadata for Google Cloud Platform resource containers."
+      },
+      "monitoring": {},
+      "name": "cloudresourcemanager.googleapis.com",
+      "quota": {},
+      "title": "Cloud Resource Manager API",
+      "usage": {
+        "requirements": [
+          "serviceusage.googleapis.com/tos/cloud"
+        ]
+      }
+    },
+    "name": "projects/<gcp-project-number>/services/cloudresourcemanager.googleapis.com",
+    "parent": "projects/<gcp-project-number>",
+    "state": "ENABLED"
+  }
+]
+```
+
+---
+
+```bash
+$ gcloud services enable logging.googleapis.com --format=json ;
+  Operation "operations/acat.p2-<gcp-project-number>-60cd72ae-54c4-4fe2-ac6b-3409e3b08058" finished successfully.
+  []
+```
+
+```json
+$ gcloud services \
+         list --enabled \
+         --filter="config.name=logging.googleapis.com" \
+         --format=json ;
+
+[
+  {
+    "config": {
+      "authentication": {},
+      "documentation": {
+        "summary": "Writes log entries and manages your Cloud Logging configuration."
+      },
+      "monitoredResources": [
+        {
+          "description": "A cloud logging specialization target schema of cloud.ChargedProject.",
+          "displayName": "Cloud logging target",
+          "labels": [
+            {
+              "description": "The monitored resource container. Could be project, workspace, etc.",
+              "key": "resource_container"
+            },
+            {
+              "description": "The service-specific notion of location.",
+              "key": "location"
+            },
+            {
+              "description": "The name of the API service with which the data is associated (e.g.,'logging.googleapis.com').",
+              "key": "service"
+            }
+          ],
+          "launchStage": "ALPHA",
+          "type": "logging.googleapis.com/ChargedProject"
+        }
+      ],
+      "monitoring": {
+        "consumerDestinations": [
+          {
+            "metrics": [
+              "logging.googleapis.com/billing/ingested_bytes",
+              "logging.googleapis.com/billing/stored_bytes"
+            ],
+            "monitoredResource": "logging.googleapis.com/ChargedProject"
+          }
+        ]
+      },
+      "name": "logging.googleapis.com",
+      "quota": {},
+      "title": "Cloud Logging API",
+      "usage": {
+        "requirements": [
+          "serviceusage.googleapis.com/tos/cloud"
+        ]
+      }
+    },
+    "name": "projects/<gcp-project-number>/services/logging.googleapis.com",
+    "parent": "projects/<gcp-project-number>",
+    "state": "ENABLED"
+  }
+]
+```
+
+---
+
+##### Grant your gcp-cli-admin service account the necessary permissions on it:
+
+```bash
+$ gcp_cli_admin="gcp-cli-admin@$( gcloud config get-value project --quiet )" ;
+$ gsutil iam ch serviceAccount:${gcp_cli_admin}.iam.gserviceaccount.com:roles/storage.admin \
+                gs://${TERRAFORM_BACKEND_BUCKET} ;
+```
+
+```terraform
+$ terraform init ;
+Initializing the backend...
+
+Successfully configured the backend "gcs"! Terraform will automatically
+use this backend unless the backend configuration changes.
+Initializing modules...
+Initializing provider plugins...
+- Finding latest version of hashicorp/google...
+- Installing hashicorp/google v6.28.0...
+- Installed hashicorp/google v6.28.0 (signed by HashiCorp)
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+```
+
+---
+
+```bash
+function create_workspaces () {
+    project_file="./project.json";
+    workspace_keys=$( jq -r '.configs.targets.sets | keys[]' "${project_file}" );
+    # echo -e "Detected environments: \n${workspace_keys}\n";
+    echo -e; for ws in ${workspace_keys}; do
+      if terraform workspace list | grep -qw "${ws}"; then
+              echo -e "Workspace '${ws}' already exists.";
+        else  echo -e "Creating workspace: ${ws}";
+              terraform workspace new "${ws}";
+      fi;
+    done;
+    default_workspace="$( jq -r '.defaults.target' "${project_file}" )";
+    terraform workspace select ${default_workspace};
+    echo -e "\nCurrent Terraform Workspace: $( terraform workspace show )\n";
+    return 0;
+  }; alias create-workspaces='create_workspaces';
+```
+
+```bash
+$ create-workspaces ;
+
+Creating workspace: dev
+Created and switched to workspace "dev"!
+
+You're now on a new, empty workspace. Workspaces isolate their state,
+so if you run "terraform plan" Terraform will not see any existing state
+for this configuration.
+Creating workspace: prod
+Created and switched to workspace "prod"!
+
+You're now on a new, empty workspace. Workspaces isolate their state,
+so if you run "terraform plan" Terraform will not see any existing state
+for this configuration.
+Creating workspace: staging
+Created and switched to workspace "staging"!
+
+You're now on a new, empty workspace. Workspaces isolate their state,
+so if you run "terraform plan" Terraform will not see any existing state
+for this configuration.
+Switched to workspace "dev".
+
+Current Terraform Workspace: dev
+```
+
+```terraform
+$ terraform validate ;
+  Success! The configuration is valid.
+```
+
+---
+
 ## Configuration Files
+
+### `/backend.tf`
+
+```json
+# File: /backend.tf
+# Version: 0.1.0
+
+terraform {
+  backend "gcs" {
+    bucket = "terraform-prototype"
+    prefix = "terraform/state"
+  }
+}
+```
+
+### `/providers.tf`
+
+```json
+# File: /providers.tf
+# Version: 0.1.0
+
+terraform {
+  required_version = ">= 1.3.0"
+}
+
+provider "google" {
+  project = local.project_id
+  region  = local.region
+}
+```
 
 ### `/project.json`
 Defines the project's defaults settings, configurations paths and scripting resources for all automed services.
@@ -268,7 +1008,7 @@ Config-File: /configs/providers/gcp.json
 
 {
     "provider": "gcp",
-    "project_id": "static-lead-454601-q1",
+    "project_id": "",
     "credentials": "",
     "regions": {
         "west": "us-west2",
@@ -549,7 +1289,7 @@ This is an abstraction mechanism to define services configurations.
     },
     "storage": {
         "bucket": {
-            "name": "multi-cloud-terraform-state"
+            "name": "terraform-prototype"
         }
     },
     "stressload": {
@@ -658,9 +1398,9 @@ Note: Tags could be fixed (as it's: nesting JSON structures, etc.) or dynamicall
 
 ---
 
-### `allowed.json`
+### `/configs/allowed.json`
 Specifies IP ranges allowed through firewall ingress rules.
-* DevOps IPS: Whitelisting remote IP adddresses.
+* DevOps IPS:  Whitelisting remote IP adddresses.
 * Private IPS: Determine Allowed VPC Peering traffic.
 * Console IPS: Allows for the GCP SSH Console access.
 

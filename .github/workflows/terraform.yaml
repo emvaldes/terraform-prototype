@@ -115,7 +115,7 @@ jobs:
           effective_env="${custom_environment:-$default_environment}" ;
           echo "TF_WORKSPACE=${effective_env}" >> $GITHUB_ENV ;
 
-      - name: Extract Workflow Globals (PROJECT_ID, REGION, etc.)
+      - name: Extract Workflow Globals (GCP_PROJECT_ID, REGION, etc.)
         id: workflow_globals
         run: |
 
@@ -123,9 +123,12 @@ jobs:
           target_environment="${{ env.TARGET_ENVIRONMENT }}" ;
 
           # Extract project ID from the credentials file
-          project_id=$(
+          gcp_project_id=$(
             jq -r .project_id "${{ env.GOOGLE_APPLICATION_CREDENTIALS }}"
-          ) ; echo -e "Project ID: ${project_id}" ;
+          ) ; echo -e "Project ID: ${gcp_project_id}" ;
+
+          echo "GCP_PROJECT_ID=${gcp_project_id}" >> $GITHUB_ENV ;
+          echo "TF_VAR_gcp_project_id=${gcp_project_id}" >> $GITHUB_ENV ;
 
           # Load paths and filenames from project configuration file
           provider=$(
@@ -172,7 +175,6 @@ jobs:
           forwarding_rule_name="${target_environment}--${forwarding_rule_base}" ;
 
           # Export to GitHub Actions environment
-          echo "PROJECT_ID=${project_id}" >> $GITHUB_ENV ;
           echo "REGION=${region}" >> $GITHUB_ENV ;
           echo "FORWARDING_RULE_NAME=${forwarding_rule_name}" >> $GITHUB_ENV ;
 
@@ -205,7 +207,7 @@ jobs:
         id: project_crendentials
         run: |
 
-          gcloud config set project "${{ env.PROJECT_ID }}" ;
+          gcloud config set project "${{ env.GCP_PROJECT_ID }}" ;
 
       - name: GCP Environment Diagnostics
         id: environment_diagnostics
@@ -218,8 +220,8 @@ jobs:
           echo -e "\n>>> gcloud config list (JSON)" ;
           gcloud config list --format=json ;
 
-          echo -e "\n>>> gcloud projects describe (${{ env.PROJECT_ID }})" ;
-          gcloud projects describe "${{ env.PROJECT_ID }}" ;
+          echo -e "\n>>> gcloud projects describe (${{ env.GCP_PROJECT_ID }})" ;
+          gcloud projects describe "${{ env.GCP_PROJECT_ID }}" ;
 
       - name: GCP Compute - Project Information
         id: compute_project_info
@@ -537,7 +539,7 @@ jobs:
         if: ${{ env.DESTROY_TFSTATE == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-state-backup-${{ github.run_id }}
+          name: terraform-prototype-backup-${{ github.run_id }}
           path: .local/
 
       - name: Terraform Destroy
