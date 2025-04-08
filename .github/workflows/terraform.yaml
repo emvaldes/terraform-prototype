@@ -170,7 +170,7 @@ jobs:
 
           # Resolve forwarding rule name from project config and inject the environment prefix
           forwarding_rule_base=$(
-            jq -r '.services.http_forwarding.name' "${project_config}"
+            jq -r '.name' "${{ github.workspace }}/configs/services/${provider}/http_forwarding.json"
           ) ;
           forwarding_rule_name="${target_environment}--${forwarding_rule_base}" ;
 
