@@ -42,7 +42,8 @@
     "storage": {
         "bucket": {
             "name": "terraform-prototype",
-            "prefix": "terraform/state"
+            "prefix": "terraform/state",
+            "rbac": true
         }
     },
     "stressload": {

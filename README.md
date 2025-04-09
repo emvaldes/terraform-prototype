@@ -138,10 +138,72 @@ This framework is designed to enable **automated, cloud-agnostic infrastructure 
   - No `0.0.0.0/0` exposure; enforced in code
 
 - **Shell Script Automation:**
-  - `./scripts/manage/terraform-backend.shell`: Handles backend bucket initialization and optional state recovery
-  - `./scripts/configure/apache-webserver.shell`: Dynamically provisions VM environments for HTTP load testing
-  - `./scripts/manage/inspect-services.shell`: Enumerates ALB configs, backend services, health checks
-  - All scripts support execution flag expansion and verbose tracing
+
+Here’s a revised and more detailed documentation section that provides proper context and clarity for the shell automation tools you've built:
+
+---
+
+### 🔧 Shell Script Automation
+
+The following scripts are used to automate and standardize infrastructure tasks across GCP environments. Each script supports modular argument parsing, dry-run support, and optional verbose/debug tracing.
+
+#### `./scripts/manage/configure-backend.shell`
+Handles the initialization, configuration, and validation of the Terraform GCS backend used for remote state storage.
+
+- Creates or verifies the existence of the bucket for the given project/environment.
+- Supports operations: `--create`, `--delete`, `--download`, `--list`
+- Accepts custom overrides for project, policies, target workspace, bucket name, and state prefix.
+- Automatically resolves and validates GCS bucket locations based on region context.
+- Integrates with Terraform to convert `.tfstate` files to JSON for inspection.
+- Fully idempotent and safe to re-run.
+
+#### `./scripts/configure/apache-webserver.shell`
+Automates the provisioning of compute VM instances configured to simulate HTTP traffic under various network load conditions.
+
+- Dynamically deploys GCP compute instances using pre-defined profiles.
+- Designed for benchmarking, load testing, or validating autoscaling policies.
+- Config-driven: aligns with defined environment parameters and VM sizing.
+- Automatically applies network tagging, firewall rules, and metadata configs.
+
+#### `./scripts/manage/inspect-services.shell`
+Audits and inspects Google Cloud Platform service configurations across environments.
+
+- Enumerates Application Load Balancers (ALBs), backends, health checks, and forwarding rules.
+- Compares current deployed state with Terraform-managed expectations.
+- Can output identity and IAM role drift detection.
+- Useful during post-deployment validation or compliance audits.
+
+#### `./scripts/manage/inspect-autoscaling.shell`
+Validates the current autoscaling configurations across instance groups.
+
+- Reads autoscaler policies and evaluates thresholds, cool-downs, and target utilization.
+- Helps verify that environment-specific scaling constraints are properly aligned.
+- Useful for confirming dynamic compute capacity planning in CI/CD testing.
+
+#### `./scripts/manage/destroy-services.shell`
+Handles controlled teardown of deployed services and cleanup of associated GCP resources.
+
+- Can destroy forwarding rules, backends, firewall rules, and instance groups.
+- Safe by default: requires user confirmation or preset flags to proceed.
+- Provides summary of affected resources before execution.
+
+#### `./scripts/manage/gcloud-presets.shell`
+Bootstraps and enforces consistent gcloud CLI environment settings across all systems.
+
+- Applies default region, zone, and active account/project.
+- Loads secure credentials and activates service accounts from managed config.
+- Helps normalize local, CI/CD, or ephemeral environments before infrastructure interaction.
+
+### Shared Features
+
+- All scripts support execution flag expansion and verbose tracing
+  - Execution flags: `--create`, `--list`, `--delete`, etc.
+  - Toggle modes: `--dry-run`, `--verbose`, `--debug`
+  - Central config loading via `project.json`, `policies.json`, or custom paths
+- Error messages are human-readable and trace-friendly.
+- Designed to be non-destructive unless explicitly confirmed.
+
+---
 
 - **CI/CD GitHub Workflow Integration:**
   - Full Terraform lifecycle steps: `validate`, `plan`, `apply`, `destroy`
@@ -183,7 +245,7 @@ This framework is designed to enable **automated, cloud-agnostic infrastructure 
 - Ensures egress connectivity for patching, installation, and monitoring
 - Cloud router setup is fully automated
 
-#### 5. **State Management** (`./scripts/manage/terraform-backend.shell`, `backend.tf`, `project.json`)
+#### 5. **State Management** (`./scripts/manage/configure-backend.shell`, `backend.tf`, `project.json`)
 - Validates bucket existence or creates it securely using `gsutil`
 - When `destroy` is run, conditionally downloads remote state to `.local/`
 - Supports state file introspection and traceability via artifacts
@@ -656,7 +718,7 @@ POLICIES_FILE="./configs/policies.json" ;
 export TERRAFORM_BACKEND_BUCKET=$( jq -r '.storage.bucket.name' "${POLICIES_FILE}" ) ;
 ```
 
-**Note**: You have the option to use a native request or use the ./scripts/manage/terraform-backend.shell script to manage this process.
+**Note**: You have the option to use a native request or use the ./scripts/manage/configure-backend.shell script to manage this process.
 
 ```bash
 $ gsutil mb -p <gcp-project-name> \
@@ -667,10 +729,10 @@ $ gsutil mb -p <gcp-project-name> \
 or
 
 ```bash
-$ ./scripts/manage/terraform-backend.shell ;
+$ ./scripts/manage/configure-backend.shell --list ;
 Bucket does not exist: gs://<terraform-backend-bucket>
 
-$ ./scripts/manage/terraform-backend.shell --create ;
+$ ./scripts/manage/configure-backend.shell --create ;
 
 Creating bucket: gs://<terraform-backend-bucket>
 Creating gs://<terraform-backend-bucket>/...
@@ -981,9 +1043,9 @@ Defines the project's defaults settings, configurations paths and scripting reso
                 "path": "./scripts/manage",
                 "script": "inspect-autoscaling.shell"
             },
-            "terraform_backend": {
+            "configure_backend": {
                 "path": "./scripts/manage",
-                "script": "terraform-backend.shell"
+                "script": "configure-backend.shell"
             }
         },
         "stressload": {
@@ -1289,7 +1351,9 @@ This is an abstraction mechanism to define services configurations.
     },
     "storage": {
         "bucket": {
-            "name": "terraform-prototype"
+            "name": "terraform-prototype",
+            "prefix": "terraform/state",
+            "rbac": true
         }
     },
     "stressload": {
@@ -1593,12 +1657,12 @@ Defined in `outputs.tf` and printed after `apply`, these include:
 │   │   ├── package-functions.md
 │   │   └── terraform-backend.md
 │   ├── manage/
+│   │   ├── configure-backend.shell*
 │   │   ├── destroy-services.shell*
 │   │   ├── gcloud-presets.shell*
 │   │   ├── inspect-autoscaling.shell*
 │   │   ├── inspect-services.shell*
-│   │   ├── package-functions.shell*
-│   │   └── terraform-backend.shell*
+│   │   └── package-functions.shell*
 │   ├── README.md
 │   └── stressload/
 │       └── webservers/
@@ -1667,7 +1731,7 @@ These elements are cloud-agnostic, configuration-driven, and designed to integra
 Defines top-level orchestration logic. This file invokes modules, passing in dynamic variables derived from the config layer.
 
 ### `backend.tf`
-Declares remote state backend configuration. This setup is resolved dynamically using the `terraform-backend.shell` script.
+Declares remote state backend configuration. This setup is resolved dynamically using the `configure-backend.shell` script.
 
 ### `providers.tf`
 Activates the appropriate cloud provider based on dynamic variables.

@@ -323,22 +323,22 @@ jobs:
         id: prepare_backend
         run: |
 
-          terraform_backend_path=$(
-            jq -r '.scripts.manage.terraform_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
+          configure_backend_path=$(
+            jq -r '.scripts.manage.configure_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
           ) ;
-          terraform_backend_script=$(
-            jq -r '.scripts.manage.terraform_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
+          configure_backend_script=$(
+            jq -r '.scripts.manage.configure_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
           ) ;
-          terraform_backend="${terraform_backend_path}/${terraform_backend_script}" ;
-          echo -e "Terraform Backend script: ${terraform_backend}" ;
+          configure_backend="${configure_backend_path}/${configure_backend_script}" ;
+          echo -e "Terraform Backend script: ${configure_backend}" ;
 
-          # chmod +x $terraform_backend ;
-          # ls -al $terraform_backend ;
+          # chmod +x $configure_backend ;
+          # ls -al $configure_backend ;
 
           echo "Checking for Terraform Backend bucket ..." ;
-          if ! ${terraform_backend}; then
+          if ! ${configure_backend}; then
                   echo "Initializing Terraform Bucket now..." ;
-                  ${terraform_backend} --create ;
+                  ${configure_backend} --create ;
             else  echo "Terraform Bucket exists. Continuing ..." ;
           fi ;
 
@@ -521,10 +521,10 @@ jobs:
         run: |
 
           backend_path=$(
-            jq -r '.scripts.manage.terraform_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
+            jq -r '.scripts.manage.configure_backend.path' ${{ env.PROJECT_CONFIG_FILE }}
           ) ;
           backend_script_name=$(
-            jq -r '.scripts.manage.terraform_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
+            jq -r '.scripts.manage.configure_backend.script' ${{ env.PROJECT_CONFIG_FILE }}
           ) ;
           backend_script="${backend_path}/${backend_script_name}" ;
           echo -e "Terraform Backend script: ${backend_script}" ;

@@ -1,108 +1,182 @@
-# Script: `terraform-backend.shell`
+Here's the **updated and enriched version** of your documentation, now aligned with the renamed and enhanced script `configure-backend.shell`. I've revised terminology, corrected outdated references, and expanded technical detail where functionality has evolved.
 
-**Version:** `0.1.0`
+---
 
-**Purpose:**
-This script provisions, inspects, downloads, and optionally destroys the remote Terraform backend infrastructure hosted on Google Cloud Storage (GCS). It offers complete lifecycle management of `.tfstate` storage for Terraform-managed environments. Beyond simple bucket creation, it supports multi-workspace state tracking, metadata auditing, and safe teardown—all aligned with infrastructure-as-code best practices.
+# Script: `configure-backend.shell`
 
-## Location
-`scripts/manage/terraform-backend.shell`
+**Version:** `0.2.0`
 
-## Execution Context
-- Must be executed from a Unix-like shell with `gcloud`, `gsutil`, and `jq` installed
-- Requires a valid authenticated GCP session using:
-  ```bash
-  gcloud auth login
-  gcloud config set project <your-project-id>
-  ```
-- Reads configuration from local `project.json` and `workspaces.json` files
+**Purpose:**  
+This script manages the lifecycle of the Terraform remote state backend on Google Cloud Storage (GCS). It provisions, inspects, downloads, and optionally destroys environment-specific state buckets. It supports dynamic multi-environment backends, automatic workspace state extraction, and full configuration validation—all in line with infrastructure-as-code best practices.
 
-## Execution Modes & Arguments
-| Argument       | Description                                                                 |
-|----------------|-----------------------------------------------------------------------------|
-| `--create`     | Creates the Terraform state bucket using settings in `project.json`         |
-| `--download`   | Downloads `.tfstate` files for all workspaces defined in `workspaces.json`  |
-| `--destroy`    | Backs up state locally, prompts user, then deletes the GCS bucket           |
-| `--config`     | Outputs current bucket configuration as structured JSON                     |
-| *(no arg)*     | Default mode: Checks for bucket existence and prints status                 |
+---
 
-## Functional Summary
-1. **Bucket Verification & Inspection** *(Default)*
-   - Checks whether the backend bucket exists and reports status
+## 📁 Location  
+`scripts/manage/configure-backend.shell`
 
-2. **Backend Provisioning** `--create`
-   - Creates the GCS bucket
-   - Enables object versioning
-   - Applies storage class, regional placement, and optional labels
+---
 
-3. **Multi-Workspace State Download** `--download`
-   - Reads `workspaces.json` to enumerate available environments
-   - Downloads `.tfstate` files for each to `.local/`
-   - Deletes empty directories if no valid state is found
+## ⚙️ Execution Context  
+- Must be run in a POSIX-compatible shell (`bash` recommended)
+- Requires:  
+  - `gcloud` CLI authenticated (`gcloud auth login` or service account key)  
+  - `gsutil` for storage operations  
+  - `jq` for parsing JSON configurations
+- Reads configuration from:
+  - `project.json`: metadata, target sets, and config dispatch
+  - `configs/policies.json`: bucket name, prefix, and storage policy
 
-4. **Backend Destruction** `--destroy`
-   - Downloads all state as backup
-   - Prompts with a 10-second countdown before deletion
-   - Destroys only after explicit confirmation
+---
 
-5. **Configuration Printout** `--config`
-   - Reads current bucket state and prints full JSON description for auditing
+## 🔄 Execution Modes & Arguments
 
-## Technical Highlights
-- **Idempotent Behavior:** Skips creation or destruction if bucket already matches target state
-- **Fail-Safe Controls:** Prevents accidental deletion with timed confirmation and automatic backup
-- **JSON-Driven:** Dynamically reads `project.json` and `workspaces.json` to drive logic and targets
-- **Multi-Workspace Support:** Dynamically handles environments such as `dev`, `staging`, `prod`
+| Option / Flag         | Description                                                             |
+|------------------------|-------------------------------------------------------------------------|
+| `--create`, `-c`       | Creates the GCS backend bucket using values from `project.json` + policies |
+| `--download`, `-w`     | Downloads `.tfstate` for all configured targets (to `.local/`)          |
+| `--delete`, `--destroy`, `-d` | Prompts for confirmation and destroys the backend bucket            |
+| `--list`, `-l`         | Verifies existence and displays the full GCS bucket configuration (JSON) |
+| `--name`, `-n`         | Override the bucket name to manage (else loaded from policies)          |
+| `--prefix`, `-x`       | Override the Terraform state prefix used inside the bucket              |
+| `--target`, `-t`       | Restrict action to a specific workspace (Terraform environment)         |
+| `--project`, `-j`      | Path to an alternate `project.json`                                     |
+| `--policies`, `-p`     | Path to an alternate `policies.json`                                    |
+| `--dry-run`            | Simulates actions without changing state                                |
+| `--verbose`            | Enables step-by-step command output                                     |
+| `--debug`              | Enables shell trace mode (`set -x`)                                     |
+| `--help`               | Prints usage and supported flags                                        |
 
-## Required Configuration Files
+---
+
+## 🧠 Functional Summary
+
+### 1. **Bucket Verification (default mode)**  
+Checks if the remote state bucket exists and reports current status. No changes are made.
+
+### 2. **Backend Provisioning `--create`**  
+- Creates the Terraform GCS bucket with correct name, region, prefix
+- Infers `location` from compute config or derives `us|europe|asia` safely
+- Bucket names are auto-structured as:  
+  `gs://<env>--<purpose>--<project_id>`
+
+### 3. **Multi-Workspace Download `--download`**  
+- Iterates over all target environments in `project.json`
+- Downloads individual `.tfstate` files from the bucket
+- Converts state files to `.json` using `terraform show -json`
+- Files are saved under `.local/` for audit or recovery
+
+### 4. **Backend Destruction `--delete` / `--destroy`**  
+- Downloads state files before deletion
+- Waits for 10 seconds for user to confirm permanent deletion
+- Deletes entire GCS bucket and outputs cleanup confirmation
+
+### 5. **Bucket Configuration Output `--list`**  
+- Uses `gcloud storage buckets describe` to show the full JSON config of the backend bucket
+- Displays storage class, soft delete policy, location, access settings
+
+---
+
+## 🔍 Technical Highlights
+
+| Feature                 | Description                                                              |
+|--------------------------|--------------------------------------------------------------------------|
+| **Idempotent**           | Creation/deletion is skipped when already in desired state              |
+| **Secure by Default**    | Enforces `uniform_bucket_level_access`, soft delete retention            |
+| **Globally Unique**      | Bucket naming based on `project_id` guarantees no collisions             |
+| **Multi-Env Compatible** | Supports `dev`, `staging`, `prod`, or custom targets                    |
+| **Safe Delete**          | Auto-downloads `.tfstate`, prompts before destruction                   |
+| **Extensible**           | CLI override support for target, bucket name, and config locations       |
+
+---
+
+## 📁 Required Configuration Files
+
 ### `project.json`
-Defines the backend bucket:
+
+Example minimal structure:
+
+```json
+{
+  "defaults": {
+    "provider": "gcp",
+    "target": "dev"
+  },
+  "configs": {
+    "targets": {
+      "dev": {},
+      "staging": {},
+      "prod": {}
+    }
+  }
+}
+```
+
+### `configs/policies.json`
+
+Defines bucket name and storage prefix:
+
 ```json
 {
   "storage": {
-    "bucket": "my-terraform-backend-bucket"
+    "bucket": {
+      "name": "dev--terraform-prototype--myproject",
+      "prefix": "terraform/state"
+    }
   }
 }
 ```
-### `workspaces.json`
-Lists Terraform environments:
-```json
-{
-  "targets": {
-    "dev": {},
-    "staging": {},
-    "prod": {}
-  }
-}
-```
-These must be colocated with the script.
 
-## Dependencies
-- `gcloud` (GCP CLI)
-- `gsutil` (for state file transfer)
-- `jq` (for parsing configuration JSON)
+---
 
-## Example Usage
+## 🧩 Dependencies
+- `gcloud`: for authenticated interaction with GCP
+- `gsutil`: for working with Cloud Storage
+- `jq`: for extracting and merging configuration
+- `terraform`: required if `.tfstate` conversion to JSON is needed
+
+---
+
+## 🚀 Example Usage
+
 ```bash
-./scripts/manage/terraform-backend.shell --create     # Provision backend
-./scripts/manage/terraform-backend.shell --download   # Backup all workspace state
-./scripts/manage/terraform-backend.shell --destroy    # Destroy bucket with 10s confirmation
-./scripts/manage/terraform-backend.shell --config     # Print GCS config
-./scripts/manage/terraform-backend.shell              # Default: check bucket existence
+# Provides Script Help (default behavior)
+./scripts/manage/configure-backend.shell
+
+# Create a backend bucket for dev
+./scripts/manage/configure-backend.shell --create --target dev
+
+# Download .tfstate files
+./scripts/manage/configure-backend.shell --download
+
+# Destroy backend bucket with confirmation
+./scripts/manage/configure-backend.shell --destroy
+
+# Show current bucket config
+./scripts/manage/configure-backend.shell --list
 ```
 
-## Extension Opportunities
-- Accept CLI args to override `project.json` or specify target workspace
-- Auto-update `backend.tf` to inject bucket and prefix dynamically
-- Generate `.tfbackend` configuration for use with `terraform init -backend-config`
-- Support bucket lifecycle rules for archival or cost optimization
+---
 
-## Use Cases
-- **CI/CD Bootstrap:** Provision remote state before deploying infra in GitHub Actions, GitLab, etc.
-- **Disaster Recovery:** Back up `.tfstate` across all environments before resets or rollbacks
-- **Migration Readiness:** Capture full state archive before switching to another backend (e.g., Terraform Cloud)
-- **Security Audit:** Validate backend compliance and retention via `--config` output
+## 💡 Future Enhancements
 
-## Summary
-The `terraform-backend.shell` script provides complete automation for Terraform state backend lifecycle management in GCP. Through modes like `--create`, `--download`, `--destroy`, and `--config`, it ensures state is centralized, versioned, recoverable, and auditable. It plays a foundational role in delivering robust, multi-environment, collaborative Terraform workflows.
+- Dynamic Terraform `backend.tf` generation based on active environment
+- Workspace-based isolation for state management and permissions
+- CI/CD support: GitHub Actions bootstrap with environment auto-detection
+- Detection of bucket policy drift (IAM, lifecycle, retention)
 
+---
+
+## ✅ Use Cases
+
+| Scenario                          | Purpose                                                  |
+|-----------------------------------|----------------------------------------------------------|
+| **CI/CD Bootstrap**               | Ensure backend exists before running `terraform init`    |
+| **Disaster Recovery**             | Back up `.tfstate` and convert to JSON before teardown   |
+| **Migration Prep**                | Archive state before backend transition                  |
+| **Policy Audit**                  | Show config, retention, versioning, and access settings  |
+
+---
+
+## 🧩 Summary
+
+The `configure-backend.shell` script is the backbone of your remote state lifecycle in GCP. It offers secure, composable, and environment-aware backend management for teams running Terraform at scale. With full CLI control, JSON-based configuration, and state introspection, it supports production-grade workflows while maintaining safety and reproducibility.

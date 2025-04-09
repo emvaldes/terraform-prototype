@@ -41,9 +41,9 @@
                 "path": "./scripts/manage",
                 "script": "inspect-autoscaling.shell"
             },
-            "terraform_backend": {
+            "configure_backend": {
                 "path": "./scripts/manage",
-                "script": "terraform-backend.shell"
+                "script": "configure-backend.shell"
             }
         },
         "stressload": {
