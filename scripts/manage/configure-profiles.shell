@@ -1,4 +1,47 @@
-#!/usr/bin/env bash
+## File: ./scripts/manage/configure-profiles.shell
+# __version__ = "0.1.0"
+
+# Description:
+# This script manages Google Cloud IAM Service Accounts and associated credentials
+# based on configuration defined in `profiles.json`. It supports creating and deleting
+# service accounts in a structured, repeatable, and JSON-driven manner.
+
+# Features:
+# - Creates service accounts with display names and downloadable credentials
+# - Deletes service accounts and associated local credentials
+# - Validates account existence and avoids overwrites unless confirmed
+# - Automatically derives account names and paths using GCP project context
+# - Uses consistent output formatting and supports dry-run/debug/verbose options
+
+# Expected Behavior:
+# - Script must be run with GCP credentials already activated (via user or service account)
+# - Configuration is read from `./configs/profiles.json`
+# - Credentials are saved under the gcloud config directory in `accounts/`
+# - Will not proceed if required files or dependencies are missing
+
+# Dependencies:
+# - `gcloud`: CLI for Google Cloud interaction
+# - `jq`: JSON parsing and extraction
+
+# Usage:
+# To run the script with various actions:
+# > ./scripts/manage/configure-profiles.shell \
+#     --create \
+#     --delete \
+#     --dry-run \
+#     --verbose \
+#     --debug
+
+# Additional flags:
+#   --dry-run   : Perform a dry run without executing destructive actions
+#   --verbose   : Enable step-by-step command logging
+#   --debug     : Enable shell tracing (`set -x`) for full execution insight
+#   --help      : Print help and usage information
+
+# Examples:
+#   ./scripts/manage/configure-profiles.shell --create
+#   ./scripts/manage/configure-profiles.shell --delete
+#   ./scripts/manage/configure-profiles.shell --help
 
 #------------------------------------------------------------------------------#
 
@@ -98,11 +141,11 @@ function delete_credentials () {
       if [[ ${forced_removal} == true ]]; then
               confirmation='y';
         else  # Check if the key already exists and prompt user
-              echo -e "\nDelete credential file?: ${credential}";
+              echo -e "\nDelete credential file?: $( echo -e "${credential}" | sed -e "s|${HOME}|~|g" )";
               read -t 10 -p "Type 'yes|y' to confirm (auto-overwrite in 10s): " confirmation;
       fi;
       if [[ ${confirmation} =~ ^(Y|y)$ ]]; then
-              echo -e "\nDeleting Credential: ${credential}\n";
+              echo -e "Deleting Credential: ${credential}\n";
               rm -f "${credential}";
               return 0;
         else  echo -e "${skipped_message}";
@@ -116,7 +159,9 @@ function delete_credentials () {
 
 function describe_account () {
     local target_account="${1}"; [[ -z ${target_account} ]] && retun 1;
-    gcloud iam service-accounts describe "${target_account}" --format=json;
+    gcloud iam service-accounts describe "${target_account}" --format=json 2>/dev/null;
+    local result=${?}; # echo -e "Result: ${result}";
+    if [[ ${result} -gt 0 ]]; then describe_account "${target_account}"; fi;
     return 0;
   }; alias describe-account='describe_account';
 
@@ -185,12 +230,14 @@ function main () {
     #### -----------------------------------------------------------------------
     if [[ ${action_create} == true ]]; then
             # echo -e "\nAction (Create): ${action_create}\n";
+            echo -e;
             create_accounts;
       else  local action_create=false;
     fi;
     #### -----------------------------------------------------------------------
     if [[ ${action_delete} == true ]]; then
             # echo -e "\nAction (Delete): ${action_delete}\n";
+            echo -e;
             delete_accounts;
       else  local action_delete=false;
     fi;
@@ -221,5 +268,3 @@ if [[ ${#@} -eq 0 ]]; then
         main --help;
   else  main "${@}";
 fi;
-
-echo -e;

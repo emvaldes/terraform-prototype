@@ -283,7 +283,7 @@ $ gcloud iam service-accounts \
 #### Purging GCP Project (default/current)
 
 ```bash
-$ gcloud projects delete $( gcloud config get-value project --quiet )$
+$ gcloud projects delete $( gcloud config get-value project --quiet )
 Your project will be deleted.
 
 Do you want to continue (Y/n)?  Y
@@ -291,9 +291,9 @@ Do you want to continue (Y/n)?  Y
 Deleted [https://cloudresourcemanager.googleapis.com/v1/projects/<gcp-project-name>].
 
 You can undo this operation for a limited period by running the command below.
-    $ gcloud projects undelete $( gcloud config get-value project --quiet )$
+    $ gcloud projects undelete $( gcloud config get-value project --quiet )
 
-See https://cloud.google.com/resource-manager/docs/creating-managing-projects 
+See https://cloud.google.com/resource-manager/docs/creating-managing-projects
 for information on shutting down projects.
 ```
 
@@ -331,7 +331,7 @@ You can skip diagnostics next time by using the following flag:
   gcloud init --skip-diagnostics
 
 Network diagnostic detects and fixes local network connection issues.
-Checking network connection...done.                                                                                                                                                                                                                       
+Checking network connection...done.
 Reachability Check passed.
 Network diagnostic passed (1/1 checks passed).
 
@@ -366,7 +366,7 @@ Would you like to create one? (Y/n)?  Y
 Enter a Project ID. Note that a Project ID CANNOT be changed later.
 Project IDs must be 6-30 characters (lowercase ASCII, digits, or
 hyphens) in length and start with a lowercase letter. <gcp-project-name>
-Waiting for [operations/create_project.global.<gcp-account-number>] to finish...done.                                                                                                                                                                      
+Waiting for [operations/create_project.global.<gcp-account-number>] to finish...done.
 Your current project has been set to: [<gcp-project-name>].
 
 Not setting default zone/region (this feature makes it easier to use
@@ -387,13 +387,13 @@ The Google Cloud CLI is configured and ready to use!
 * Commands will reference project `<gcp-project-name>` by default
 Run `gcloud help config` to learn how to change individual settings
 
-This gcloud configuration is called [default]. 
+This gcloud configuration is called [default].
 You can create additional configurations if you work with multiple accounts and/or projects.
 Run `gcloud topic configurations` to learn more.
 
 Some things to try next:
 
-* Run `gcloud --help` to see the Cloud Platform services you can interact with. 
+* Run `gcloud --help` to see the Cloud Platform services you can interact with.
   And run `gcloud help COMMAND` to get help on any gcloud command.
 * Run `gcloud topic --help` to learn about advanced features of the CLI like arg files and output formatting
 * Run `gcloud cheat-sheet` to see a roster of go-to `gcloud` commands.
@@ -402,9 +402,9 @@ Some things to try next:
 ```bash
 $ gcloud services enable iam.googleapis.com compute.googleapis.com ;
 
-ERROR: (gcloud.services.enable) FAILED_PRECONDITION: 
-       Billing account for project '<gcp-account-number>' is not found. 
-       Billing must be enabled for activation of service(s) 
+ERROR: (gcloud.services.enable) FAILED_PRECONDITION:
+       Billing account for project '<gcp-account-number>' is not found.
+       Billing must be enabled for activation of service(s)
        'compute.googleapis.com,compute.googleapis.com,compute.googleapis.com' to proceed.
 Help Token: <gcp-service-token>
 
@@ -428,7 +428,7 @@ Help Token: <gcp-service-token>
 ```bash
 $ gcloud beta billing accounts list ;
 
-You do not currently have this command group installed.  Using it 
+You do not currently have this command group installed.  Using it
 requires the installation of components: [beta]
 
 
@@ -458,26 +458,26 @@ Performing in place update...
 ╠═ Installing: gcloud Beta Commands                         ═╣
 ╚════════════════════════════════════════════════════════════╝
 
-Performing post processing steps...done.                                                                                                                                                                                                                  
+Performing post processing steps...done.
 
 Update done!
 
 Restarting command:
   $ gcloud beta billing accounts list
 
-API [cloudbilling.googleapis.com] not enabled on project [<gcp-project-name>]. 
+API [cloudbilling.googleapis.com] not enabled on project [<gcp-project-name>].
 Would you like to enable and retry (this will take a few minutes)? (y/N)?  y
 
 Enabling service [cloudbilling.googleapis.com] on project [<gcp-project-name>]...
 
-ERROR: (gcloud.beta.billing.accounts.list) PERMISSION_DENIED: 
-Service Usage API has not been used in project <gcp-project-name> before or it is disabled. 
-Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry. 
-If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. 
+ERROR: (gcloud.beta.billing.accounts.list) PERMISSION_DENIED:
+Service Usage API has not been used in project <gcp-project-name> before or it is disabled.
+Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry.
+If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
 This command is authenticated as <gcp-account-email> which is the active account specified by the [core/account] property.
 
-Service Usage API has not been used in project <gcp-project-name> before or it is disabled. 
-Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry. 
+Service Usage API has not been used in project <gcp-project-name> before or it is disabled.
+Enable it by visiting https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=<gcp-project-name> then retry.
 If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
 
 Google developers console API activation
@@ -511,7 +511,7 @@ $ gcloud beta billing accounts list --format=json ;
 
 ```bash
 $ gcloud beta billing projects \
-         link $( gcloud config get-value project --quiet )$ \
+         link $( gcloud config get-value project --quiet ) \
          --billing-account <gcp-billing-account> ;
 
   billingAccountName: billingAccounts/<gcp-billing-account>
@@ -580,7 +580,7 @@ $ gcloud iam service-accounts keys \
          create ${HOME}/.gcp/credentials.json \
          --iam-account gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com ;
 
-  created key [<gcp-private-keyid>] of type [json] as [${HOME}/.gcp/credentials.json] 
+  created key [<gcp-private-keyid>] of type [json] as [${HOME}/.gcp/credentials.json]
   for [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
 ```
 
@@ -637,9 +637,129 @@ $ gcloud iam service-accounts keys \
          create ${HOME}/.gcp/credentials.json \
          --iam-account $(
             gcloud auth list --filter=status:ACTIVE --format="value(account)"
-        ) ;
-  # created key [<gcp-created-keyid>] of type [json] 
+         ) ;
+  # created key [<gcp-created-keyid>] of type [json]
   # as [${HOME}/.gcp/credentials.json] for [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
+```
+
+---
+
+```bash
+$ ./scripts/manage/configure-profiles.shell --create ;
+
+Account:     dev-account@<gcp-project-name>.iam.gserviceaccount.com
+Description: Development environment service account
+Credentials: ~/.config/gcloud/accounts/dev-account--credentials.json
+```
+
+```json
+Created service account [dev-account].
+{
+  "displayName": "Development environment service account",
+  "email": "dev-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/<gcp-project-name>/serviceAccounts/dev-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "oauth2ClientId": "<oauth2-client-id>",
+  "projectId": "<gcp-project-name>",
+  "uniqueId": "<oauth2-client-id>"
+}
+```
+
+```bash
+created key [35730dcfb306a1d3a6b1764e1f351a9f6745f35e] of type [json]
+as [~/.config/gcloud/accounts/dev-account--credentials.json]
+for [dev-account@<gcp-project-name>.iam.gserviceaccount.com]
+-rw-------  1 emvaldes  staff  2376 Apr 10 15:38 ~/.config/gcloud/accounts/dev-account--credentials.json
+
+Account:     devops-account@<gcp-project-name>.iam.gserviceaccount.com
+Description: DevOps service account
+Credentials: ~/.config/gcloud/accounts/devops-account--credentials.json
+```
+
+```json
+Created service account [devops-account].
+{
+  "displayName": "DevOps service account",
+  "email": "devops-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/<gcp-project-name>/serviceAccounts/devops-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "oauth2ClientId": "116957529764710061292",
+  "projectId": "<gcp-project-name>",
+  "uniqueId": "116957529764710061292"
+}
+```
+
+```bash
+created key [c5ee50e9cc571aae4a27a12abee96a7b213098c3] of type [json]
+as [~/.config/gcloud/accounts/devops-account--credentials.json]
+for [devops-account@<gcp-project-name>.iam.gserviceaccount.com]
+-rw-------  1 emvaldes  staff  2382 Apr 10 15:38 ~/.config/gcloud/accounts/devops-account--credentials.json
+
+Account:     prod-account@<gcp-project-name>.iam.gserviceaccount.com
+Description: Production environment service account
+Credentials: ~/.config/gcloud/accounts/prod-account--credentials.json
+```
+
+```json
+Created service account [prod-account].
+{
+  "displayName": "Production environment service account",
+  "email": "prod-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/<gcp-project-name>/serviceAccounts/prod-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "oauth2ClientId": "117373193121071847420",
+  "projectId": "<gcp-project-name>",
+  "uniqueId": "117373193121071847420"
+}
+```
+
+```bash
+created key [1e02ed021d0654a70c6a751f5b196f3983800db7] of type [json]
+as [~/.config/gcloud/accounts/prod-account--credentials.json]
+for [prod-account@<gcp-project-name>.iam.gserviceaccount.com]
+-rw-------  1 emvaldes  staff  2382 Apr 10 15:39 ~/.config/gcloud/accounts/prod-account--credentials.json
+
+Account:     staging-account@<gcp-project-name>.iam.gserviceaccount.com
+Description: Staging environment service account
+Credentials: ~/.config/gcloud/accounts/staging-account--credentials.json
+```
+
+```json
+Created service account [staging-account].
+{
+  "displayName": "Staging environment service account",
+  "email": "staging-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/<gcp-project-name>/serviceAccounts/staging-account@<gcp-project-name>.iam.gserviceaccount.com",
+  "oauth2ClientId": "100743049498201815348",
+  "projectId": "<gcp-project-name>",
+  "uniqueId": "100743049498201815348"
+}
+```
+
+```bash
+created key [e9fad93e0999d2282a877ac38d07bc57b3d1baa5] of type [json]
+as [~/.config/gcloud/accounts/staging-account--credentials.json]
+for [staging-account@<gcp-project-name>.iam.gserviceaccount.com]
+-rw-------  1 emvaldes  staff  2384 Apr 10 15:39 ~/.config/gcloud/accounts/staging-account--credentials.json
+```
+
+---
+
+```bash
+$ ./scripts/manage/configure-profiles.shell --delete ;
+
+deleted service account [dev-account@<gcp-project-name>.iam.gserviceaccount.com]
+Deleting Credential: ~/.config/gcloud/accounts/dev-account--credentials.json
+
+deleted service account [devops-account@<gcp-project-name>.iam.gserviceaccount.com]
+Deleting Credential: ~/.config/gcloud/accounts/devops-account--credentials.json
+
+deleted service account [prod-account@<gcp-project-name>.iam.gserviceaccount.com]
+Deleting Credential: ~/.config/gcloud/accounts/prod-account--credentials.json
+
+deleted service account [staging-account@<gcp-project-name>.iam.gserviceaccount.com]
+Deleting Credential: ~/.config/gcloud/accounts/staging-account--credentials.json
 ```
 
 ---
@@ -673,7 +793,7 @@ locals {
 
   # Provider config (cloud-specific)
   provider_default   = jsondecode(file("${path.root}/configs/providers/${local.provider_id}.json"))
-  
+
   # Final provider config, overriding project_id if passed via env
   provider = merge(
     local.provider_default,
