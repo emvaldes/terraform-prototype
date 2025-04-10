@@ -91,6 +91,7 @@ function create_bucket () {
       # echo "Waiting for bucket visibility...";
       echo -n '.'; sleep 5;
     done;
+    bucket_configuration;
     return 0;
   }; alias create-bucket='create_bucket';
 
@@ -134,26 +135,26 @@ function delete_bucket () {
       else  echo "No remote Terraform states found.";
     fi;
     echo -e "\nDeleting backend-bucket: gs://${bucket_name}";
-    echo -e "You have 10 seconds to cancel. Default is 'yes|y'.\n";
-    read -t 10 -p "Type 'yes|y' to confirm: " confirmation || confirmation="yes";
+    echo -e "You have 10 seconds to cancel. To proceed, please enter 'yes|y'.\n";
+    read -t 10 -p "Type 'yes|y' to confirm: " confirmation || confirmation=;
     local answer="${confirmation:0:1}";
     if [[ "${answer,,}" == "y" ]]; then
-            echo -e;
-            gsutil -m -o "GSUtil:parallel_process_count=1" rm -r "gs://${bucket_name}" || {
-              echo -e "Failed to delete bucket.\n";
-              retun 1;
-            };
-            echo -e "\nBucket gs://${bucket_name} was deleted."
-            echo -e "Local backup is under ${local_state_dir}/\n";
-      else  echo -e "\nCancelled. No action taken.\n";
+      echo -e;
+      gsutil -m -o "GSUtil:parallel_process_count=1" rm -r "gs://${bucket_name}" || {
+        echo -e "Failed to delete bucket.\n";
+        retun 1;
+      };
+      echo -e "\nBucket gs://${bucket_name} was deleted."
+      echo -e "Local backup is under ${local_state_dir}/\n";
     fi;
+    [[ -z ${confirmation} ]] && echo -e "\nRequest was cancelled/ignored. No action taken.\n";
     return 0;
   }; alias delete-bucket='delete_bucket';
 
 #### ---------------------------------------------------------------------------
 
 function download_states() {
-    echo -e "\Searching for Terraform state files ...\n";
+    echo -e "\nSearching for Terraform state files ...\n";
     local found_any_state=0;
     workspaces=$( jq -r '.configs.targets.sets | keys[]' "${project_filepath}" )
     for ws in ${workspaces[@]}; do
@@ -282,6 +283,7 @@ function main () {
             fi;
       else  local action_delete=false;
     fi;
+    #### -----------------------------------------------------------------------
     return 0;
 }; alias configure-backend='main';
 

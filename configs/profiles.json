@@ -1,0 +1,83 @@
+{
+  "accounts": {
+    "dev": {
+      "id": "Development",
+      "description": "Development environment service account",
+      "name": "dev-account",
+      "credentials": "dev-credentials.json",
+      "environments": [
+        "dev"
+      ],
+      "roles": [
+        {
+          "resource": "bucket",
+          "role": "roles/storage.objectAdmin"
+        },
+        {
+          "resource": "project",
+          "role": "roles/viewer"
+        }
+      ]
+    },
+    "staging": {
+      "id": "Staging",
+      "description": "Staging environment service account",
+      "name": "staging-account",
+      "credentials": "staging-credentials.json",
+      "environments": [
+        "dev",
+        "staging"
+      ],
+      "roles": [
+        {
+          "resource": "bucket",
+          "role": "roles/storage.objectAdmin"
+        },
+        {
+          "resource": "project",
+          "role": "roles/logging.viewer"
+        }
+      ]
+    },
+    "prod": {
+      "id": "Production",
+      "description": "Production environment service account",
+      "name": "prod-account",
+      "credentials": "prod-credentials.json",
+      "environments": [
+        "prod"
+      ],
+      "roles": [
+        {
+          "resource": "bucket",
+          "role": "roles/storage.objectAdmin"
+        },
+        {
+          "resource": "project",
+          "role": "roles/monitor.viewer"
+        }
+      ]
+    },
+    "devops": {
+      "id": "DevOps",
+      "description": "DevOps service account",
+      "name": "devops-account",
+      "credentials": "devops-credentials.json",
+      "environments": [
+        "dev",
+        "staging",
+        "prod"
+      ],
+      "roles": [
+        {
+          "resource": "bucket",
+          "role": "roles/storage.objectAdmin"
+        },
+        {
+          "resource": "project",
+          "role": "roles/logging.logWriter"
+        }
+      ]
+    }
+  }
+}

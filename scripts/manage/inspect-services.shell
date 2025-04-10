@@ -580,11 +580,12 @@ function autoscaler_activity_inspect () {
     local filter_pattern="${1:-autoscalers/}"  # Default if not provided
     local autoscaler_log_raw
 
-    autoscaler_log_raw=$(gcloud logging read \
-      "resource.type=\"gce_autoscaler\" AND protoPayload.resourceName:\"${filter_pattern}\"" \
-      --project="${project_id}" \
-      --limit=1000 \
-      --format=json 2>/dev/null || echo "[]"
+    autoscaler_log_raw=$(
+      gcloud logging read \
+             "resource.type=\"gce_autoscaler\" AND protoPayload.resourceName:\"${filter_pattern}\"" \
+             --project="${project_id}" \
+             --limit=1000 \
+             --format=json 2>/dev/null || echo "[]"
     )
 
     if [[ -z "${autoscaler_log_raw}" || "${autoscaler_log_raw}" == "[]" ]]; then
