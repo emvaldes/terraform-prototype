@@ -255,10 +255,10 @@ Bootstraps and enforces consistent gcloud CLI environment settings across all sy
 #### Download & install (latest version):
 
 ```bash
-$ target_package="google-cloud-cli-457.0.0-linux-x86_64.tar.gz" ;
-$ curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${target_package} ;
-$ tar -xf google-cloud-cli-*.tar.gz ;
-$ ./google-cloud-sdk/install.sh ;
+> target_package="google-cloud-cli-457.0.0-linux-x86_64.tar.gz" ;
+> curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${target_package} ;
+> tar -xf google-cloud-cli-*.tar.gz ;
+> ./google-cloud-sdk/install.sh ;
 ```
 
 ---
@@ -266,24 +266,24 @@ $ ./google-cloud-sdk/install.sh ;
 #### Backup Local Configuration
 
 ```bash
-$ GCP_HOME="${HOME}/.gcp" ;
-$ GCP_BACKUPS="${GCP_HOME}/backups" ;
+> GCP_HOME="${HOME}/.gcp" ;
+> GCP_BACKUPS="${GCP_HOME}/backups" ;
 
-$ mkdir -p ${GCP_BACKUPS}/ ;
-$ cp -prv ${HOME}/.config/gcloud ${GCP_BACKUPS}/ ;
+> mkdir -p ${GCP_BACKUPS}/ ;
+> cp -prv ${HOME}/.config/gcloud ${GCP_BACKUPS}/ ;
 
-$ gcloud config configurations \
+> gcloud config configurations \
          list --format=json > ${HOME}/.gcp/backups/configurations.json ;
-$ gcloud config configurations \
+> gcloud config configurations \
          describe default > ${HOME}/.gcp/backups/default-configs.yaml ;
-$ gcloud iam service-accounts \
+> gcloud iam service-accounts \
          list --format=json > ${HOME}/.gcp/backups/service-accounts.json ;
 ```
 
 #### Purging GCP Project (default/current)
 
 ```bash
-$ gcloud projects delete $( gcloud config get-value project --quiet )
+> gcloud projects delete $( gcloud config get-value project --quiet )
 Your project will be deleted.
 
 Do you want to continue (Y/n)?  Y
@@ -308,7 +308,7 @@ for information on shutting down projects.
 - Set a default region and zone
 
 ```bash
-$ gcloud init --console-only ;
+> gcloud init --console-only ;
 ```
 
 ##### This will allow Google Cloud SDK to:
@@ -321,7 +321,7 @@ $ gcloud init --console-only ;
 ##### Copy the URL, open in browser manually, paste the code back in the terminal.
 
 ```bash
-$ gcloud init --console-only ;
+> gcloud init --console-only ;
 
 Welcome! This command will take you through the configuration of gcloud.
 
@@ -400,7 +400,7 @@ Some things to try next:
 ```
 
 ```bash
-$ gcloud services enable iam.googleapis.com compute.googleapis.com ;
+> gcloud services enable iam.googleapis.com compute.googleapis.com ;
 
 ERROR: (gcloud.services.enable) FAILED_PRECONDITION:
        Billing account for project '<gcp-account-number>' is not found.
@@ -426,7 +426,7 @@ Help Token: <gcp-service-token>
 ```
 
 ```bash
-$ gcloud beta billing accounts list ;
+> gcloud beta billing accounts list ;
 
 You do not currently have this command group installed.  Using it
 requires the installation of components: [beta]
@@ -495,7 +495,7 @@ https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overv
 ```
 
 ```bash
-$ gcloud beta billing accounts list --format=json ;
+> gcloud beta billing accounts list --format=json ;
 
 [
   {
@@ -510,7 +510,7 @@ $ gcloud beta billing accounts list --format=json ;
 ```
 
 ```bash
-$ gcloud beta billing projects \
+> gcloud beta billing projects \
          link $( gcloud config get-value project --quiet ) \
          --billing-account <gcp-billing-account> ;
 
@@ -521,7 +521,7 @@ $ gcloud beta billing projects \
 ```
 
 ```bash
-$ gcloud beta billing projects describe $( gcloud config get-value project) ;
+> gcloud beta billing projects describe $( gcloud config get-value project) ;
 
 API [cloudbilling.googleapis.com] not enabled on project [<gcp-project-number>]. Would you like to enable and retry (this will take a few minutes)? (y/N)?  y
 
@@ -534,14 +534,14 @@ projectId: <gcp-project-name>
 ```
 
 ```bash
-$ gcloud services enable \
+> gcloud services enable \
          iam.googleapis.com compute.googleapis.com ;
 
   Operation "operations/acf.p2-<gcp-account-number>-<service-serial-number>" finished successfully.
 ```
 
 ```bash
-$ gcloud iam service-accounts \
+> gcloud iam service-accounts \
          create gcp-cli-admin \
          --display-name "GCP CLI Admin" ;
 
@@ -549,7 +549,7 @@ $ gcloud iam service-accounts \
 ```
 
 ```bash
-$ gcloud projects add-iam-policy-binding <gcp-project-name> \
+> gcloud projects add-iam-policy-binding <gcp-project-name> \
          --member="serviceAccount:gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com" \
          --role="roles/owner" ;
 
@@ -576,7 +576,7 @@ $ gcloud projects add-iam-policy-binding <gcp-project-name> \
 ```
 
 ```bash
-$ gcloud iam service-accounts keys \
+> gcloud iam service-accounts keys \
          create ${HOME}/.gcp/credentials.json \
          --iam-account gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com ;
 
@@ -585,12 +585,12 @@ $ gcloud iam service-accounts keys \
 ```
 
 ```bash
-$ ls -al ${HOME}/.gcp/credentials.json ;
+> ls -al ${HOME}/.gcp/credentials.json ;
   -rw-------  1 <user-id>  staff  2380 Jan  1 00:00 ${HOME}/.gcp/credentials.json
 ```
 
 ```bash
-$ bat ${HOME}/.gcp/credentials.json ;
+> bat ${HOME}/.gcp/credentials.json ;
      │ File: ${HOME}/.gcp/credentials.json
   1  │ {
   2  │   "type": "service_account",
@@ -608,32 +608,32 @@ $ bat ${HOME}/.gcp/credentials.json ;
 ```
 
 ```bash
-$ gcloud auth activate-service-account --key-file=${HOME}/.gcp/credentials.json ;
+> gcloud auth activate-service-account --key-file=${HOME}/.gcp/credentials.json ;
 
   Activated service account credentials for: [gcp-cli-admin@<gcp-project-name>.iam.gserviceaccount.com]
 ```
 
 ```bash
-$ gcloud config set compute/region us-west2 ;
+> gcloud config set compute/region us-west2 ;
 
   WARNING: Property validation for compute/region was skipped.
   Updated property [compute/region].
 
-$ gcloud config get-value compute/region ;
+> gcloud config get-value compute/region ;
   us-west2
 ```
 
 ```bash
-$ gcloud config set compute/zone us-west2-a ;
+> gcloud config set compute/zone us-west2-a ;
   WARNING: Property validation for compute/zone was skipped.
   Updated property [compute/zone].
 
-$ gcloud config get-value compute/zone ;
+> gcloud config get-value compute/zone ;
   us-west2-a
 ```
 
 ```bash
-$ gcloud iam service-accounts keys \
+> gcloud iam service-accounts keys \
          create ${HOME}/.gcp/credentials.json \
          --iam-account $(
             gcloud auth list --filter=status:ACTIVE --format="value(account)"
@@ -645,7 +645,7 @@ $ gcloud iam service-accounts keys \
 ---
 
 ```bash
-$ ./scripts/manage/configure-profiles.shell --create ;
+> ./scripts/manage/configure-profiles.shell --create ;
 
 Account:     dev-account@<gcp-project-name>.iam.gserviceaccount.com
 Description: Development environment service account
@@ -654,6 +654,7 @@ Credentials: ~/.config/gcloud/accounts/dev-account--credentials.json
 
 ```json
 Created service account [dev-account].
+
 {
   "displayName": "Development environment service account",
   "email": "dev-account@<gcp-project-name>.iam.gserviceaccount.com",
@@ -678,6 +679,7 @@ Credentials: ~/.config/gcloud/accounts/devops-account--credentials.json
 
 ```json
 Created service account [devops-account].
+
 {
   "displayName": "DevOps service account",
   "email": "devops-account@<gcp-project-name>.iam.gserviceaccount.com",
@@ -702,6 +704,7 @@ Credentials: ~/.config/gcloud/accounts/prod-account--credentials.json
 
 ```json
 Created service account [prod-account].
+
 {
   "displayName": "Production environment service account",
   "email": "prod-account@<gcp-project-name>.iam.gserviceaccount.com",
@@ -726,6 +729,7 @@ Credentials: ~/.config/gcloud/accounts/staging-account--credentials.json
 
 ```json
 Created service account [staging-account].
+
 {
   "displayName": "Staging environment service account",
   "email": "staging-account@<gcp-project-name>.iam.gserviceaccount.com",
@@ -747,7 +751,7 @@ for [staging-account@<gcp-project-name>.iam.gserviceaccount.com]
 ---
 
 ```bash
-$ ./scripts/manage/configure-profiles.shell --delete ;
+> ./scripts/manage/configure-profiles.shell --delete ;
 
 deleted service account [dev-account@<gcp-project-name>.iam.gserviceaccount.com]
 Deleting Credential: ~/.config/gcloud/accounts/dev-account--credentials.json
@@ -813,7 +817,7 @@ locals {
 ---
 
 ```bash
-$ gcloud auth list ;
+> gcloud auth list ;
                       Credentialed Accounts
 ACTIVE  ACCOUNT
         <gcp-account-email>@gmail.com
@@ -841,7 +845,7 @@ export TERRAFORM_BACKEND_BUCKET=$( jq -r '.storage.bucket.name' "${POLICIES_FILE
 **Note**: You have the option to use a native request or use the ./scripts/manage/configure-backend.shell script to manage this process.
 
 ```bash
-$ gsutil mb -p <gcp-project-name> \
+> gsutil mb -p <gcp-project-name> \
          -l us-west2 \
          -b on gs://${TERRAFORM_BACKEND_BUCKET} ;
 ```
@@ -849,10 +853,10 @@ $ gsutil mb -p <gcp-project-name> \
 or
 
 ```bash
-$ ./scripts/manage/configure-backend.shell --list ;
+> ./scripts/manage/configure-backend.shell --list ;
 Bucket does not exist: gs://<terraform-backend-bucket>
 
-$ ./scripts/manage/configure-backend.shell --create ;
+> ./scripts/manage/configure-backend.shell --create ;
 
 Creating bucket: gs://<terraform-backend-bucket>
 Creating gs://<terraform-backend-bucket>/...
@@ -861,6 +865,7 @@ Bucket created.
 
 ```json
 Bucket configuration:
+
 {
   "creation_time": "2025-01-01T007:00:00+0000",
   "default_storage_class": "STANDARD",
@@ -884,7 +889,7 @@ Bucket configuration:
 ---
 
 ```bash
-$ gcloud services \
+> gcloud services \
          enable cloudresourcemanager.googleapis.com \
          --format=json ;
   Operation "operations/acat.p2-<gcp-project-number>-<operation-unique-identifier>" finished successfully.
@@ -924,7 +929,7 @@ $ gcloud services \
 ---
 
 ```bash
-$ gcloud services enable logging.googleapis.com --format=json ;
+> gcloud services enable logging.googleapis.com --format=json ;
   Operation "operations/acat.p2-<gcp-project-number>-60cd72ae-54c4-4fe2-ac6b-3409e3b08058" finished successfully.
   []
 ```
@@ -996,36 +1001,9 @@ $ gcloud services \
 ##### Grant your gcp-cli-admin service account the necessary permissions on it:
 
 ```bash
-$ gcp_cli_admin="gcp-cli-admin@$( gcloud config get-value project --quiet )" ;
-$ gsutil iam ch serviceAccount:${gcp_cli_admin}.iam.gserviceaccount.com:roles/storage.admin \
+> gcp_cli_admin="gcp-cli-admin@$( gcloud config get-value project --quiet )" ;
+> gsutil iam ch serviceAccount:${gcp_cli_admin}.iam.gserviceaccount.com:roles/storage.admin \
                 gs://${TERRAFORM_BACKEND_BUCKET} ;
-```
-
-```terraform
-$ terraform init ;
-Initializing the backend...
-
-Successfully configured the backend "gcs"! Terraform will automatically
-use this backend unless the backend configuration changes.
-Initializing modules...
-Initializing provider plugins...
-- Finding latest version of hashicorp/google...
-- Installing hashicorp/google v6.28.0...
-- Installed hashicorp/google v6.28.0 (signed by HashiCorp)
-Terraform has created a lock file .terraform.lock.hcl to record the provider
-selections it made above. Include this file in your version control repository
-so that Terraform can guarantee to make the same selections by default when
-you run "terraform init" in the future.
-
-Terraform has been successfully initialized!
-
-You may now begin working with Terraform. Try running "terraform plan" to see
-any changes that are required for your infrastructure. All Terraform commands
-should now work.
-
-If you ever set or change modules or backend configuration for Terraform,
-rerun this command to reinitialize your working directory. If you forget, other
-commands will detect it and remind you to do so if necessary.
 ```
 
 ---
@@ -1049,9 +1027,138 @@ function create_workspaces () {
   }; alias create-workspaces='create_workspaces';
 ```
 
-```bash
-$ create-workspaces ;
+---
 
+```bash
+function initialize_terraform () {
+    local project_file="./project.json";
+    local policies_file="./configs/policies.json";
+    local project_name=$( gcloud config get-value project );  # Get the project name dynamically from GCP CLI
+    local workspace=$( jq -r '.defaults.target' "${project_file}" );
+    local storage=$( jq -r '.storage' "${policies_file}" );
+    export terraform_bucket_name="$(
+      echo -e "${storage}" \
+         | jq -r --arg env "${workspace}" --arg project "${project_name}" \
+           'if .bucket.rbac == true then "\($env)--\(.bucket.name)--\($project)"
+            else .bucket.name end'
+    )"; echo -e "Terraform Bucket name:   ${terraform_bucket_name}";
+    ## e.g.: dev--terraform-prototype--<gcp-project-name>
+    export terraform_bucket_prefix="$(
+      jq -r '.bucket.prefix' <<< ${storage}
+    )"; echo -e "Terraform Bucket prefix: ${terraform_bucket_prefix}";
+    echo -e;
+    ## e.g.: terraform/state
+    terraform init \
+              -backend-config="bucket=${terraform_bucket_name}" \
+              -backend-config="prefix=${terraform_bucket_prefix}";
+    if [[ -f .terraform/terraform.tfstate ]]; then
+      jq -r . .terraform/terraform.tfstate;
+      # jq -r '.backend.config.bucket' .terraform/terraform.tfstate
+      # e.g.: dev--terraform-prototype--<gcp-project-name>
+    fi;
+    gsutil ls gs://${terraform_bucket_name}/terraform/state/;
+    # e.g.: gs://dev--terraform-prototype--<gcp-project-name>/terraform/state/default.tfstate;
+    ## Initializing Terraform Workspaces (default: ./projects.json->defaults.target)
+    create_workspaces;
+    return 0;
+}; alias initialize-terraform='initialize_terraform';
+```
+
+```bash
+> ./scripts/manage/configure-backend.shell --create ;
+
+Action (Create): true
+
+Creating gs://dev--terraform-prototype--<gcp-project-name>/...
+Bucket gs://dev--terraform-prototype--<gcp-project-name> was created and confirmed!
+
+Bucket gs://dev--terraform-prototype--<gcp-project-name> exists.
+```
+
+```json
+Bucket configuration:
+
+{
+  "creation_time": "2025-04-11T01:35:21+0000",
+  "default_storage_class": "STANDARD",
+  "generation": 1744335321634073103,
+  "location": "US",
+  "location_type": "multi-region",
+  "metageneration": 1,
+  "name": "dev--terraform-prototype--<gcp-project-name>",
+  "public_access_prevention": "inherited",
+  "rpo": "DEFAULT",
+  "soft_delete_policy": {
+    "effectiveTime": "2025-04-11T01:35:21.888000+00:00",
+    "retentionDurationSeconds": "604800"
+  },
+  "storage_url": "gs://dev--terraform-prototype--<gcp-project-name>/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2025-04-11T01:35:21+0000"
+}
+```
+
+```hcl
+initialize-terraform ;
+
+Terraform Bucket name:   dev--terraform-prototype--<gcp-project-name>
+Terraform Bucket prefix: terraform/state
+
+Initializing the backend...
+
+Successfully configured the backend "gcs"! Terraform will automatically
+use this backend unless the backend configuration changes.
+Initializing modules...
+Initializing provider plugins...
+- Finding latest version of hashicorp/google...
+- Installing hashicorp/google v6.29.0...
+- Installed hashicorp/google v6.29.0 (signed by HashiCorp)
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+```
+
+```json
+$ jq -r . .terraform/terraform.tfstate;
+
+{
+  "version": 3,
+  "terraform_version": "1.11.4",
+  "backend": {
+    "type": "gcs",
+    "config": {
+      "access_token": null,
+      "bucket": "<workspace>--<terraform-bucket-name>--<gcp-project-name>",
+      "credentials": null,
+      "encryption_key": null,
+      "impersonate_service_account": null,
+      "impersonate_service_account_delegates": null,
+      "kms_encryption_key": null,
+      "prefix": "terraform/state",
+      "storage_custom_endpoint": null
+    },
+    "hash": <hash-number>
+  }
+}
+```
+
+```bash
+> gsutil ls gs://${terraform_bucket_name}/terraform/state/;
+  gs://dev--terraform-prototype--<gcp-project-name>/terraform/state/default.tfstate
+```
+
+```hcl
 Creating workspace: dev
 Created and switched to workspace "dev"!
 
@@ -1076,7 +1183,7 @@ Current Terraform Workspace: dev
 ```
 
 ```terraform
-$ terraform validate ;
+> terraform validate ;
   Success! The configuration is valid.
 ```
 

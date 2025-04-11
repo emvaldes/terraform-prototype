@@ -2,8 +2,5 @@
 # Version: 0.1.0
 
 terraform {
-  backend "gcs" {
-    bucket = "terraform-prototype"
-    prefix = "terraform/state"
-  }
+  backend "gcs" {}
 }
