@@ -2,7 +2,7 @@
 # Version: 0.1.0
 
 # Used for sending HTTP requests during the stress test.
-requests==2.31.0
+requests==2.32.4
 
 # Handles authentication when using Google Cloud APIs via the Python client libraries (like Compute Engine API).
 # Required for service account credentials and making authenticated API calls.
